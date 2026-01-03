@@ -27,13 +27,13 @@
 - [x] 스트리밍 응답 처리 (Tauri events)
 - [x] 캐릭터 표정/애니메이션 ↔ 응답 감정 연동 (emotionMapper)
 
-## Phase 5: MCP Setup
-- [ ] 로컬 MCP 서버 구현
-  - [ ] 현재 시간/날짜
-  - [ ] 활성 윈도우 정보
-  - [ ] 시스템 알림 감지
-- [ ] Claude Code MCP 연결 테스트
-- [ ] Agent에 MCP tools 등록
+## Phase 5: MCP Setup - COMPLETED
+- [x] 로컬 MCP 서버 구현
+  - [x] 현재 시간/날짜 (get_current_time)
+  - [x] 활성 윈도우 정보 (get_active_window)
+  - [x] 시스템 알림 감지 (check_notifications)
+- [x] Claude Code MCP 연결 테스트
+- [x] Agent에 MCP tools 등록 (via --mcp-config)
 
 ## Phase 6: Desktop Automation
 - [ ] 파일 시스템 접근 도구

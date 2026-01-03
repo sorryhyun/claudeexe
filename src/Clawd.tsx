@@ -6,9 +6,11 @@ interface ClawdProps {
   direction: Direction;
   emotion?: Emotion;
   onClick?: (e: React.MouseEvent) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
 }
 
-function Clawd({ state, direction, emotion = "neutral", onClick }: ClawdProps) {
+function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, onDoubleClick }: ClawdProps) {
   const getAnimationClass = () => {
     switch (state) {
       case "walking":
@@ -38,6 +40,8 @@ function Clawd({ state, direction, emotion = "neutral", onClick }: ClawdProps) {
       shapeRendering="crispEdges"
       className={`clawd ${getAnimationClass()} clawd-emotion-${emotion}`}
       onClick={onClick}
+      onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
       style={{
         transform: direction === "left" ? "scaleX(-1)" : "scaleX(1)",
       }}

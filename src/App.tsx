@@ -143,6 +143,15 @@ function App() {
     const handleMouseMove = async (e: MouseEvent) => {
       if (!isDragging) return;
 
+      // Check if moved enough to count as drag (more than 5 pixels)
+      if (dragStartPos.current) {
+        const dx = Math.abs(e.clientX - dragStartPos.current.x);
+        const dy = Math.abs(e.clientY - dragStartPos.current.y);
+        if (dx > 5 || dy > 5) {
+          wasDragged.current = true;
+        }
+      }
+
       const appWindow = getCurrentWindow();
       const factor = await appWindow.scaleFactor();
       const currentPos = await appWindow.outerPosition();
@@ -156,6 +165,7 @@ function App() {
 
     const handleMouseUp = async () => {
       setIsDragging(false);
+      dragStartPos.current = null;
       // Re-sync physics position after drag
       await physics.syncPosition();
       if (physicsEnabled) {
@@ -186,8 +196,31 @@ function App() {
     mascot.setState("idle");
   };
 
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const wasDragged = useRef(false);
+
+  const handleClawdMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Track start position to detect drag vs click
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    wasDragged.current = false;
+    setIsDragging(true);
+    physics.stopPhysics();
+    physics.stopWalking();
+    if (walkTimeoutRef.current) {
+      clearTimeout(walkTimeoutRef.current);
+    }
+    mascot.setState("idle");
+  };
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Only toggle chat if it wasn't a drag
+    if (wasDragged.current) {
+      wasDragged.current = false;
+      return;
+    }
 
     // Toggle chat mode
     setChatOpen((prev) => !prev);
@@ -256,6 +289,7 @@ function App() {
         direction={mascot.direction}
         emotion={mascot.emotion}
         onClick={handleClick}
+        onMouseDown={chatOpen ? undefined : handleClawdMouseDown}
       />
     </div>
   );

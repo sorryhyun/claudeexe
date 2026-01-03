@@ -6,7 +6,11 @@
       "WebSearch",
       "WebFetch(domain:docs.claude.com)",
       "Bash(cargo check:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(cat:*)",
+      "Bash(node clawd-server.mjs:*)",
+      "Bash(node:*)",
+      "Bash(timeout 3 node:*)"
     ]
   }
 }

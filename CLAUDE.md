@@ -2,10 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Conventions
-
-- **Paths**: Always use forward slashes `/` for paths, not backslashes `\`. This works cross-platform.
-
 ## Project Overview
 
 Claude Mascot is a desktop mascot application featuring "Clawd" - an animated character that lives on the user's desktop. Built with Tauri v2 (Rust backend) + React + TypeScript (frontend).
@@ -46,7 +42,13 @@ cd src-tauri && cargo check    # Type-check Rust code
 ### MCP (Model Context Protocol)
 
 - `mcp/config.json` - MCP server configuration for Claude CLI
-- `mcp/emotion-server.mjs` - Stdio-based MCP server exposing `set_emotion` tool
+- `mcp/clawd-server.mjs` - Desktop awareness tools:
+  - `get_current_time` - Get current date/time information
+  - `get_active_window` - Get info about the focused window (Windows)
+  - `get_system_info` - Get basic system information
+  - `check_notifications` - Check for system notifications (limited on Windows)
+- `mcp/emotion-server.mjs` - Emotion control:
+  - `set_emotion` - Control Clawd's emotional expression
 
 ### Emotions
 
@@ -58,5 +60,5 @@ cd src-tauri && cargo check    # Type-check Rust code
 
 - **Physics**: Window moves via Tauri's `setPosition` API with gravity, floor/wall collisions, and bounce effects
 - **Auto-walk**: Randomly triggers walking behavior every 3-10 seconds
-- **Interactions**: Single-click triggers jump/talk/walk; double-click toggles physics; drag repositions window
+- **Interactions**: Single-click on Clawd toggles chat mode; double-click toggles physics; drag on background repositions window
 - **Direction**: Mascot faces left/right by CSS `scaleX(-1)` transform
