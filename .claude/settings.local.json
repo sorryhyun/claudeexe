@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm run vite:build:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.claude.com)"
+    ]
+  }
+}
