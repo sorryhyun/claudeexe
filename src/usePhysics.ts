@@ -206,13 +206,17 @@ export function usePhysics({
     }
   }, []);
 
-  const syncPosition = useCallback(async () => {
+  const syncPosition = useCallback(async (resetVelocity = true) => {
     try {
       const appWindow = getCurrentWindow();
       const position = await appWindow.outerPosition();
       const factor = await appWindow.scaleFactor();
       stateRef.current.x = position.x / factor;
       stateRef.current.y = position.y / factor;
+      if (resetVelocity) {
+        stateRef.current.velocityX = 0;
+        stateRef.current.velocityY = 0;
+      }
     } catch (e) {
       console.error("Failed to sync position:", e);
     }

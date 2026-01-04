@@ -1,0 +1,279 @@
+/* Chat interface styles */
+
+/* Chat container - floats above Clawd */
+.chat-container {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 2px solid #BD825D;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 8px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  max-height: 100px;
+}
+
+/* Speech Bubble */
+.speech-bubble {
+  position: relative;
+  max-width: 180px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  word-wrap: break-word;
+  animation: bubble-pop 0.2s ease-out;
+}
+
+@keyframes bubble-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.speech-bubble-clawd {
+  align-self: flex-start;
+  background: #ffffff;
+  color: #333;
+  border: 2px solid #BD825D;
+  margin-left: 4px;
+}
+
+.speech-bubble-user {
+  align-self: flex-end;
+  background: #BD825D;
+  color: white;
+  margin-right: 4px;
+}
+
+
+/* Typing indicator */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  background: #BD825D;
+  border-radius: 50%;
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Chat Input */
+.chat-input-form {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 11px;
+  padding: 4px 6px;
+  background: transparent;
+  color: #333;
+  min-width: 0;
+}
+
+.chat-input::placeholder {
+  color: #999;
+}
+
+.chat-send-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: #BD825D;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background: #a06e4d;
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Streaming indicator */
+.speech-bubble.streaming {
+  border-color: #BD825D;
+  animation: bubble-pop 0.2s ease-out, streaming-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes streaming-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(189, 130, 93, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(189, 130, 93, 0);
+  }
+}
+
+/* Blinking cursor for streaming */
+.cursor-blink {
+  display: inline;
+  animation: blink 1s step-end infinite;
+  color: #BD825D;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Code blocks */
+.code-block {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 9px;
+  line-height: 1.3;
+  overflow-x: auto;
+  margin: 4px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.code-block code {
+  font-family: inherit;
+}
+
+/* Tool indicator */
+.tool-indicator {
+  background: rgba(189, 130, 93, 0.15);
+  color: #BD825D;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: tool-pulse 1s ease-in-out infinite;
+}
+
+.tool-indicator::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: #BD825D;
+  border-radius: 50%;
+  animation: tool-dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tool-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes tool-dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+/* Chat input row with interrupt button */
+.chat-input-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.chat-input-row .chat-input-form {
+  flex: 1;
+  margin-top: 0;
+}
+
+/* Interrupt button */
+.interrupt-btn {
+  padding: 0 8px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.interrupt-btn:hover {
+  background: #c0392b;
+}
+
+.interrupt-btn:active {
+  transform: scale(0.98);
+}

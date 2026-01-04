@@ -1,0 +1,54 @@
+/* Base styles - Reset and container */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  border: none;
+  outline: none;
+}
+
+.mascot-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: grab;
+  user-select: none;
+}
+
+.mascot-container:active {
+  cursor: grabbing;
+}
+
+/* Chat mode container adjustments */
+.mascot-container.chat-mode {
+  cursor: default;
+  position: relative;
+  overflow: visible; /* Allow chat bubble to overflow */
+}
+
+.mascot-container.chat-mode .clawd {
+  cursor: pointer;
+}
+
+/* Wrapper for Clawd and chat bubble */
+.clawd-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

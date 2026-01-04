@@ -63,7 +63,6 @@ function SpeechBubble({
           </>
         )}
       </div>
-      <div className="speech-bubble-tail"></div>
     </div>
   );
 }
