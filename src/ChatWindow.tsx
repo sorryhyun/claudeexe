@@ -27,6 +27,20 @@ function ChatWindow() {
     };
   }, []);
 
+  // Close chat window when it loses focus (clicking outside)
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    const unlisten = appWindow.onFocusChanged(async ({ payload: focused }) => {
+      if (!focused) {
+        emit("chat-closed");
+        await appWindow.close();
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
