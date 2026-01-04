@@ -20,6 +20,7 @@ function App() {
   const walkTimeoutRef = useRef<number | null>(null);
   const autoWalkRef = useRef<number | null>(null);
   const chatWindowRef = useRef<WebviewWindow | null>(null);
+  const chatOpenRef = useRef(false); // Sync ref to track chat state
 
   const mascot = useMascotState();
 
@@ -69,9 +70,10 @@ function App() {
     };
   }, [mascot]);
 
-  // Listen for chat window closed
+  // Listen for chat window closed (by focus loss or X button)
   useEffect(() => {
     const unlisten = listen("chat-closed", () => {
+      chatOpenRef.current = false;
       setChatOpen(false);
       chatWindowRef.current = null;
       mascot.setState("idle");
@@ -242,8 +244,10 @@ function App() {
       return;
     }
 
-    if (chatOpen) {
+    // Use ref for synchronous check (state may be stale due to async updates)
+    if (chatOpenRef.current) {
       // Close chat window
+      chatOpenRef.current = false;
       if (chatWindowRef.current) {
         await chatWindowRef.current.close();
         chatWindowRef.current = null;
@@ -255,6 +259,7 @@ function App() {
       }
     } else {
       // Open chat window
+      chatOpenRef.current = true;
       physics.stopPhysics();
       physics.stopWalking();
       mascot.setState("talking");

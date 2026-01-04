@@ -4,12 +4,20 @@
  * All tools available to Clawd via the Claude Agent SDK.
  */
 
-export { createEmotionTool, VALID_EMOTIONS } from './emotion.mjs';
-export { getCurrentTimeTool } from './time.mjs';
-export { getActiveWindowTool } from './window.mjs';
-export { getSystemInfoTool } from './system.mjs';
-export { createScreenshotTool } from './screenshot.mjs';
-export { createClipboardTool } from './clipboard.mjs';
+import { createEmotionTool, VALID_EMOTIONS } from './emotion.mjs';
+import { getCurrentTimeTool } from './time.mjs';
+import { getActiveWindowTool } from './window.mjs';
+import { getSystemInfoTool } from './system.mjs';
+import { createScreenshotTool } from './screenshot.mjs';
+import { createClipboardTool } from './clipboard.mjs';
+
+// Re-export for external use
+export { createEmotionTool, VALID_EMOTIONS };
+export { getCurrentTimeTool };
+export { getActiveWindowTool };
+export { getSystemInfoTool };
+export { createScreenshotTool };
+export { createClipboardTool };
 
 /**
  * Create all tools with the required dependencies
