@@ -24,7 +24,7 @@ cd src-tauri && cargo check    # Type-check Rust code
 
 ## Architecture
 
-### Frontend (React/TypeScript)
+### Frontend (React / TypeScript)
 
 - `src/App.tsx` - Main application component orchestrating physics, mascot state, and user interactions (drag, click, double-click)
 - `src/Clawd.tsx` - SVG-based mascot component with CSS animations for different states
