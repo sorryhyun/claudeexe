@@ -6,6 +6,15 @@ import { platform } from "os";
 const execAsync = promisify(exec);
 
 /**
+ * Encode PowerShell script as Base64 for -EncodedCommand
+ * PowerShell expects UTF-16LE encoding
+ */
+function encodePowerShellCommand(script) {
+  const buffer = Buffer.from(script, "utf16le");
+  return buffer.toString("base64");
+}
+
+/**
  * Get information about the currently focused window
  */
 export const getActiveWindowTool = tool(
@@ -13,42 +22,50 @@ export const getActiveWindowTool = tool(
   "Get information about the currently focused/active window on the user's desktop. Returns the window title and process name. Use this to understand what the user is currently working on.",
   {},
   async () => {
-    if (platform() !== 'win32') {
+    if (platform() !== "win32") {
       return {
-        content: [{ type: "text", text: JSON.stringify({ error: "Active window detection only supported on Windows" }) }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "Active window detection only supported on Windows",
+            }),
+          },
+        ],
       };
     }
 
     try {
       const psScript = `
-        Add-Type @"
-          using System;
-          using System.Runtime.InteropServices;
-          using System.Text;
-          public class Win32 {
-            [DllImport("user32.dll")]
-            public static extern IntPtr GetForegroundWindow();
-            [DllImport("user32.dll")]
-            public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
-            [DllImport("user32.dll")]
-            public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-          }
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public class Win32 {
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")]
+  public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+  [DllImport("user32.dll")]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+}
 "@
-        $hwnd = [Win32]::GetForegroundWindow()
-        $sb = New-Object System.Text.StringBuilder 256
-        [void][Win32]::GetWindowText($hwnd, $sb, 256)
-        $processId = 0
-        [void][Win32]::GetWindowThreadProcessId($hwnd, [ref]$processId)
-        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-        @{
-          title = $sb.ToString()
-          processName = if ($process) { $process.ProcessName } else { "Unknown" }
-          processId = $processId
-        } | ConvertTo-Json
-      `;
+$hwnd = [Win32]::GetForegroundWindow()
+$sb = New-Object System.Text.StringBuilder 256
+[void][Win32]::GetWindowText($hwnd, $sb, 256)
+$processId = 0
+[void][Win32]::GetWindowThreadProcessId($hwnd, [ref]$processId)
+$process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+@{
+  title = $sb.ToString()
+  processName = if ($process) { $process.ProcessName } else { "Unknown" }
+  processId = $processId
+} | ConvertTo-Json
+`;
 
+      const encoded = encodePowerShellCommand(psScript);
       const { stdout } = await execAsync(
-        `powershell -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        `powershell -EncodedCommand ${encoded}`,
         { timeout: 5000 }
       );
 
@@ -57,10 +74,15 @@ export const getActiveWindowTool = tool(
       };
     } catch (e) {
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({ error: "Failed to get active window", details: e.message })
-        }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "Failed to get active window",
+              details: e.message,
+            }),
+          },
+        ],
       };
     }
   }

@@ -16,27 +16,41 @@ function ChatWindow() {
 
   const chat = useChatHistory({ onEmotionChange: handleEmotionChange });
 
-  // Listen for close request from main window
+  // Listen for hide request from main window
   useEffect(() => {
-    const unlisten = listen("close-chat", async () => {
+    const unlisten = listen("hide-chat", async () => {
       const appWindow = getCurrentWindow();
-      await appWindow.close();
+      await appWindow.hide();
     });
     return () => {
       unlisten.then((fn) => fn());
     };
   }, []);
 
-  // Close chat window when it loses focus (clicking outside)
+  // Hide chat window when it loses focus (clicking outside)
+  // Use a delay to avoid hiding during drag operations
   useEffect(() => {
     const appWindow = getCurrentWindow();
+    let hideTimeout: number | null = null;
+
     const unlisten = appWindow.onFocusChanged(async ({ payload: focused }) => {
-      if (!focused) {
-        emit("chat-closed");
-        await appWindow.close();
+      if (focused) {
+        // Cancel any pending hide if we regain focus
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+      } else {
+        // Delay hide to allow for drag operations
+        hideTimeout = window.setTimeout(async () => {
+          emit("chat-closed");
+          await appWindow.hide();
+        }, 150);
       }
     });
+
     return () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
       unlisten.then((fn) => fn());
     };
   }, []);
@@ -46,14 +60,22 @@ function ChatWindow() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.messages, chat.isTyping]);
 
-  // Enable window dragging on the header
-  const handleDragStart = async () => {
+  // Enable window dragging - exclude input elements and buttons
+  const handleDragStart = async (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const tagName = target.tagName.toLowerCase();
+
+    // Don't drag if clicking on interactive elements
+    if (tagName === "input" || tagName === "textarea" || tagName === "button") {
+      return;
+    }
+
     const appWindow = getCurrentWindow();
     await appWindow.startDragging();
   };
 
   return (
-    <div className="chat-window">
+    <div className="chat-window" onMouseDown={handleDragStart}>
       <div className="chat-window-header" onMouseDown={handleDragStart}>
         <span className="chat-window-title">Chat with Clawd</span>
         <button
@@ -61,7 +83,7 @@ function ChatWindow() {
           onClick={async () => {
             emit("chat-closed");
             const appWindow = getCurrentWindow();
-            await appWindow.close();
+            await appWindow.hide();
           }}
         >
           ×
@@ -74,7 +96,7 @@ function ChatWindow() {
             Using: {chat.streamingState.currentToolName}
           </div>
         )}
-        <div className="chat-messages">
+        <div className="chat-messages" onMouseDown={handleDragStart}>
           {chat.messages.map((msg) => (
             <SpeechBubble
               key={msg.id}

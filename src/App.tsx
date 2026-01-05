@@ -210,26 +210,71 @@ function App() {
     const clawdY = position.y / factor;
 
     // Position chat window to the right of Clawd
-    // Chat tail is on the left, pointing at Clawd
-    const chatX = clawdX + WINDOW_WIDTH - 5; // Right of Clawd, slight overlap for tail
-    const chatY = Math.max(0, clawdY - CHAT_HEIGHT + WINDOW_HEIGHT - 20); // Align tail with Clawd
+    const chatX = clawdX + WINDOW_WIDTH - 5;
+    const chatY = Math.max(0, clawdY - CHAT_HEIGHT + WINDOW_HEIGHT - 20);
 
-    const chatWindow = new WebviewWindow("chat", {
-      url: "index.html?chat=true",
-      title: "Chat",
-      width: CHAT_WIDTH,
-      height: CHAT_HEIGHT,
-      x: Math.round(chatX),
-      y: Math.round(chatY),
-      resizable: false,
-      decorations: false,
-      transparent: true,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      shadow: false,
-    });
+    // Try to get existing chat window first
+    const existingWindow = await WebviewWindow.getByLabel("chat");
+    console.log("[App] openChatWindow - existingWindow:", existingWindow ? "exists" : "null");
 
-    chatWindowRef.current = chatWindow;
+    if (existingWindow) {
+      // Window exists - reposition, show, and focus
+      try {
+        console.log("[App] Showing existing chat window");
+        await existingWindow.setPosition(new PhysicalPosition(
+          Math.round(chatX * factor),
+          Math.round(chatY * factor)
+        ));
+        await existingWindow.show();
+        await existingWindow.setFocus();
+        chatWindowRef.current = existingWindow;
+        return;
+      } catch (err) {
+        console.log("[App] Show failed:", err);
+        // Window is in bad state, will create new one
+      }
+    }
+
+    console.log("[App] Creating new chat window at", Math.round(chatX), Math.round(chatY));
+
+    try {
+      const chatWindow = new WebviewWindow("chat", {
+        url: "index.html?chat=true",
+        title: "Chat",
+        width: CHAT_WIDTH,
+        height: CHAT_HEIGHT,
+        x: Math.round(chatX),
+        y: Math.round(chatY),
+        resizable: false,
+        decorations: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        shadow: false,
+      });
+
+      // Wait for window to be created
+      await new Promise<void>((resolve, reject) => {
+        chatWindow.once("tauri://created", () => {
+          console.log("[App] Chat window created successfully");
+          resolve();
+        });
+        chatWindow.once("tauri://error", (e) => {
+          console.log("[App] Chat window creation error:", e);
+          reject(e);
+        });
+      });
+
+      chatWindowRef.current = chatWindow;
+    } catch (err) {
+      console.error("[App] Failed to create chat window:", err);
+      chatOpenRef.current = false;
+      setChatOpen(false);
+      mascot.setState("idle");
+      if (physicsEnabled) {
+        physics.startPhysics();
+      }
+    }
   };
 
   const handleClick = async (e: React.MouseEvent) => {
@@ -244,13 +289,21 @@ function App() {
       return;
     }
 
-    // Use ref for synchronous check (state may be stale due to async updates)
+    // Use chatOpenRef as source of truth for visibility
+    console.log("[App] handleClick - chatOpenRef:", chatOpenRef.current);
+
     if (chatOpenRef.current) {
-      // Close chat window
+      // Hide chat window
+      console.log("[App] Hiding chat window");
       chatOpenRef.current = false;
-      if (chatWindowRef.current) {
-        await chatWindowRef.current.close();
-        chatWindowRef.current = null;
+
+      const existingWindow = await WebviewWindow.getByLabel("chat");
+      if (existingWindow) {
+        try {
+          await existingWindow.hide();
+        } catch (err) {
+          console.log("[App] Hide error:", err);
+        }
       }
       setChatOpen(false);
       mascot.setState("idle");
@@ -258,7 +311,8 @@ function App() {
         physics.startPhysics();
       }
     } else {
-      // Open chat window
+      // Open/show chat window
+      console.log("[App] Opening chat window");
       chatOpenRef.current = true;
       physics.stopPhysics();
       physics.stopWalking();

@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -6,7 +7,7 @@ use std::thread;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Manager, WindowEvent,
 };
 
 /// Persistent sidecar process
@@ -17,6 +18,39 @@ static SIDECAR_STDIN: Mutex<Option<ChildStdin>> = Mutex::new(None);
 
 /// Current session ID (maintained by sidecar, cached here)
 static SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
+
+/// Get the session file path for persistence
+fn get_session_file_path() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|d| d.join("claude-mascot").join("session.txt"))
+}
+
+/// Save session ID to disk
+fn save_session_to_disk(session_id: &str) {
+    if let Some(path) = get_session_file_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&path, session_id);
+        println!("[Rust] Session saved to {:?}", path);
+    }
+}
+
+/// Load session ID from disk
+fn load_session_from_disk() -> Option<String> {
+    let path = get_session_file_path()?;
+    match fs::read_to_string(&path) {
+        Ok(content) => {
+            let session = content.trim().to_string();
+            if !session.is_empty() {
+                println!("[Rust] Loaded session from disk: {}", session);
+                Some(session)
+            } else {
+                None
+            }
+        }
+        Err(_) => None,
+    }
+}
 
 /// Get the sidecar script path
 fn get_sidecar_path() -> Option<PathBuf> {
@@ -137,9 +171,10 @@ fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
                             let _ = app_handle.emit("agent-emotion", &json);
                         }
                         "result" => {
-                            // Update cached session ID
+                            // Update cached session ID and persist to disk
                             if let Some(sid) = json.get("sessionId").and_then(|s| s.as_str()) {
                                 *SESSION_ID.lock().unwrap() = Some(sid.to_string());
+                                save_session_to_disk(sid);
                             }
                             let _ = app_handle.emit("agent-result", &json);
                         }
@@ -251,6 +286,11 @@ pub fn run() {
             stop_sidecar
         ])
         .setup(|app| {
+            // Load persisted session ID from disk
+            if let Some(session_id) = load_session_from_disk() {
+                *SESSION_ID.lock().unwrap() = Some(session_id);
+            }
+
             // Create tray menu
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -298,6 +338,20 @@ pub fn run() {
                 .build(app)?;
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Only hide main window to tray - let other windows close normally
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let label = window.label();
+                println!("[Rust] Window '{}' close requested", label);
+                if label == "main" {
+                    println!("[Rust] Hiding main window to tray");
+                    let _ = window.hide();
+                    api.prevent_close();
+                } else {
+                    println!("[Rust] Allowing '{}' window to close", label);
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

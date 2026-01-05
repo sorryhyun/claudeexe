@@ -8,6 +8,15 @@ import { join } from "path";
 const execAsync = promisify(exec);
 
 /**
+ * Encode PowerShell script as Base64 for -EncodedCommand
+ * PowerShell expects UTF-16LE encoding
+ */
+function encodePowerShellCommand(script) {
+  const buffer = Buffer.from(script, "utf16le");
+  return buffer.toString("base64");
+}
+
+/**
  * Read the contents of the user's clipboard
  * @param {Function} log - Logging function
  */
@@ -17,9 +26,16 @@ export function createClipboardTool(log) {
     "Read the contents of the user's clipboard. Can read both text and images. Use this when the user asks you to look at what they've copied, or when they mention copying something.",
     {},
     async () => {
-      if (platform() !== 'win32') {
+      if (platform() !== "win32") {
         return {
-          content: [{ type: "text", text: JSON.stringify({ error: "Clipboard reading only supported on Windows" }) }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "Clipboard reading only supported on Windows",
+              }),
+            },
+          ],
         };
       }
 
@@ -28,49 +44,54 @@ export function createClipboardTool(log) {
 
       try {
         // First check for image in clipboard
-        const imageCheckScript = `
-          Add-Type -AssemblyName System.Windows.Forms
-          $img = [System.Windows.Forms.Clipboard]::GetImage()
-          if ($img -ne $null) {
-            $img.Save('${tempFile.replace(/\\/g, '\\\\')}', [System.Drawing.Imaging.ImageFormat]::Png)
-            $img.Dispose()
-            Write-Output "IMAGE"
-          } else {
-            Write-Output "NO_IMAGE"
-          }
-        `;
+        const imageScript = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$img = [System.Windows.Forms.Clipboard]::GetImage()
+if ($img -ne $null) {
+  $img.Save('${tempFile.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Png)
+  $img.Dispose()
+  Write-Output "IMAGE"
+} else {
+  Write-Output "NO_IMAGE"
+}
+`;
 
+        const imageEncoded = encodePowerShellCommand(imageScript);
         const { stdout: imageResult } = await execAsync(
-          `powershell -Command "${imageCheckScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+          `powershell -EncodedCommand ${imageEncoded}`,
           { timeout: 5000 }
         );
 
         if (imageResult.trim() === "IMAGE" && existsSync(tempFile)) {
           const imageData = readFileSync(tempFile);
-          const base64 = imageData.toString('base64');
-          try { unlinkSync(tempFile); } catch (e) { /* ignore */ }
+          const base64 = imageData.toString("base64");
+          try {
+            unlinkSync(tempFile);
+          } catch (e) {
+            /* ignore */
+          }
 
           log(`Clipboard image read: ${imageData.length} bytes`);
+          // MCP format for images: { type: "image", data: base64, mimeType: "..." }
           results.push({
             type: "image",
-            source: {
-              type: "base64",
-              media_type: "image/png",
-              data: base64,
-            },
+            data: base64,
+            mimeType: "image/png",
           });
           results.push({ type: "text", text: "Clipboard contains an image." });
         }
 
         // Also check for text
         const textScript = `
-          Add-Type -AssemblyName System.Windows.Forms
-          $text = [System.Windows.Forms.Clipboard]::GetText()
-          if ($text) { Write-Output $text } else { Write-Output "" }
-        `;
+Add-Type -AssemblyName System.Windows.Forms
+$text = [System.Windows.Forms.Clipboard]::GetText()
+if ($text) { Write-Output $text } else { Write-Output "" }
+`;
 
+        const textEncoded = encodePowerShellCommand(textScript);
         const { stdout: textResult } = await execAsync(
-          `powershell -Command "${textScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+          `powershell -EncodedCommand ${textEncoded}`,
           { timeout: 5000 }
         );
 
@@ -84,19 +105,31 @@ export function createClipboardTool(log) {
         }
 
         if (results.length === 0) {
-          results.push({ type: "text", text: "Clipboard is empty or contains unsupported data format." });
+          results.push({
+            type: "text",
+            text: "Clipboard is empty or contains unsupported data format.",
+          });
         }
 
         return { content: results };
       } catch (e) {
         // Clean up temp file on error
-        try { unlinkSync(tempFile); } catch (e2) { /* ignore */ }
+        try {
+          unlinkSync(tempFile);
+        } catch (e2) {
+          /* ignore */
+        }
 
         return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({ error: "Failed to read clipboard", details: e.message })
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "Failed to read clipboard",
+                details: e.message,
+              }),
+            },
+          ],
         };
       }
     }
