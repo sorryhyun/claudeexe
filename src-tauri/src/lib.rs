@@ -174,6 +174,10 @@ fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
                             // Emit walk-to-window event for frontend
                             let _ = app_handle.emit("walk-to-window", &json);
                         }
+                        "move" => {
+                            // Emit move event for frontend
+                            let _ = app_handle.emit("clawd-move", &json);
+                        }
                         "result" => {
                             // Update cached session ID and persist to disk
                             if let Some(sid) = json.get("sessionId").and_then(|s| s.as_str()) {

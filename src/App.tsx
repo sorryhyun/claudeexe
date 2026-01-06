@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
@@ -90,6 +90,63 @@ function App() {
         mascot.setState("idle");
         mascot.setDirection(physics.getDirection());
         mascot.setEmotion("curious", 5000);
+      });
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [chatOpen, isDragging, mascot, physics]);
+
+  // Listen for move events from sidecar
+  useEffect(() => {
+    const unlisten = listen<{ target: string; x: number | null }>("clawd-move", async (event) => {
+      const { target, x } = event.payload;
+      console.log("[App] clawd-move event:", { target, x });
+
+      // Don't move if chat is open or dragging
+      if (chatOpen || isDragging) return;
+
+      // Get screen bounds to calculate named positions
+      const monitor = await currentMonitor();
+      const appWindow = getCurrentWindow();
+      const scaleFactor = await appWindow.scaleFactor();
+
+      if (!monitor) {
+        console.error("[App] Could not get monitor info");
+        return;
+      }
+
+      const screenWidth = monitor.size.width / scaleFactor;
+
+      // Calculate target X based on target type
+      let targetX: number;
+      switch (target) {
+        case "left":
+          targetX = monitor.position.x / scaleFactor;
+          break;
+        case "right":
+          targetX = (monitor.position.x / scaleFactor) + screenWidth - WINDOW_WIDTH;
+          break;
+        case "center":
+          targetX = (monitor.position.x / scaleFactor) + (screenWidth / 2) - (WINDOW_WIDTH / 2);
+          break;
+        case "coordinates":
+          targetX = x ?? physics.getState().x;
+          break;
+        default:
+          console.error("[App] Unknown move target:", target);
+          return;
+      }
+
+      // Walk to target
+      const currentX = physics.getState().x;
+      const direction = targetX > currentX ? "right" : "left";
+      mascot.setDirection(direction);
+      mascot.setState("walking");
+
+      physics.walkToX(targetX, () => {
+        mascot.setState("idle");
+        mascot.setDirection(physics.getDirection());
       });
     });
     return () => {

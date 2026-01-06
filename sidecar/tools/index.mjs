@@ -11,6 +11,7 @@ import { getSystemInfoTool } from './system.mjs';
 import { createScreenshotTool } from './screenshot.mjs';
 import { createClipboardTool } from './clipboard.mjs';
 import { createInvestigateWindowTool } from './investigateWindow.mjs';
+import { createMoveTool } from './move.mjs';
 
 // Re-export for external use
 export { createEmotionTool, VALID_EMOTIONS };
@@ -20,6 +21,7 @@ export { getSystemInfoTool };
 export { createScreenshotTool };
 export { createClipboardTool };
 export { createInvestigateWindowTool };
+export { createMoveTool };
 
 /**
  * Create all tools with the required dependencies
@@ -37,5 +39,6 @@ export function createAllTools({ emit, log }) {
     createScreenshotTool(log),
     createClipboardTool(log),
     createInvestigateWindowTool(emit),
+    createMoveTool(emit),
   ];
 }
