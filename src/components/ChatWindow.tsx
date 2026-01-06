@@ -3,8 +3,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
 import SpeechBubble from "./SpeechBubble";
 import ChatInput from "./ChatInput";
-import { useChatHistory } from "./useChatHistory";
-import type { Emotion } from "./emotions";
+import { useChatHistory } from "../hooks/useChatHistory";
+import type { Emotion } from "../emotions";
 
 function ChatWindow() {
   const messagesEndRef = useRef<HTMLDivElement>(null);

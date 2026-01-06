@@ -4,20 +4,23 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
 import Clawd from "./Clawd";
-import { useMascotState } from "./useMascotState";
-import { usePhysics } from "./usePhysics";
-import type { Emotion } from "./emotions";
-
-const WINDOW_WIDTH = 160;
-const WINDOW_HEIGHT = 140;
-const CHAT_WIDTH = 220;
-const CHAT_HEIGHT = 280;
-
-// Default offset for chat window relative to Clawd
-const DEFAULT_CHAT_OFFSET = {
-  x: WINDOW_WIDTH - 5,
-  y: -CHAT_HEIGHT + WINDOW_HEIGHT - 20,
-};
+import { useMascotState } from "../hooks/useMascotState";
+import { usePhysics } from "../hooks/usePhysics";
+import type { Emotion } from "../emotions";
+import {
+  WINDOW_WIDTH,
+  WINDOW_HEIGHT,
+  CHAT_WIDTH,
+  CHAT_HEIGHT,
+  DEFAULT_CHAT_OFFSET,
+  AUTO_WALK_MIN_DELAY,
+  AUTO_WALK_MAX_DELAY,
+  WALK_DURATION,
+  AUTO_WALK_CHANCE,
+  DRAG_THRESHOLD,
+  CONTEXT_MENU_WIDTH,
+  CONTEXT_MENU_HEIGHT,
+} from "../constants";
 
 function App() {
   const [isDragging, setIsDragging] = useState(false);
@@ -217,26 +220,42 @@ function App() {
     };
   }, []);
 
+  // Listen for open-chat-history event from context menu
+  useEffect(() => {
+    const unlisten = listen("open-chat-history", async () => {
+      if (!chatOpenRef.current) {
+        chatOpenRef.current = true;
+        physics.stopPhysics();
+        physics.stopWalking();
+        mascot.setState("talking");
+        setChatOpen(true);
+        await openChatWindow();
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [physics, mascot]);
+
   // Auto-walk behavior
   useEffect(() => {
     if (chatOpen) return;
 
     const scheduleAutoWalk = () => {
-      const delay = 15000 + Math.random() * 30000;
+      const delay = AUTO_WALK_MIN_DELAY + Math.random() * (AUTO_WALK_MAX_DELAY - AUTO_WALK_MIN_DELAY);
       autoWalkRef.current = window.setTimeout(() => {
         // Check conditions at execution time, not capture time
         if (!isDragging && mascot.state === "idle" && mascot.isGrounded && !chatOpen) {
-          if (Math.random() > 0.7) {
+          if (Math.random() > (1 - AUTO_WALK_CHANCE)) {
             const direction = Math.random() > 0.5 ? "right" : "left";
             mascot.setDirection(direction);
             mascot.setState("walking");
             physics.startWalking(direction);
 
-            const walkDuration = 1500;
             walkTimeoutRef.current = window.setTimeout(() => {
               physics.stopWalking();
               mascot.setState("idle");
-            }, walkDuration);
+            }, WALK_DURATION);
           }
         }
         scheduleAutoWalk();
@@ -259,7 +278,7 @@ function App() {
       if (dragStartPos.current) {
         const dx = Math.abs(e.clientX - dragStartPos.current.x);
         const dy = Math.abs(e.clientY - dragStartPos.current.y);
-        if (dx > 5 || dy > 5) {
+        if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
           wasDragged.current = true;
         }
       }
@@ -459,6 +478,46 @@ function App() {
     setPhysicsEnabled((prev) => !prev);
   };
 
+  const handleContextMenu = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Close any existing context menu
+    const existingMenu = await WebviewWindow.getByLabel("contextmenu");
+    if (existingMenu) {
+      await existingMenu.close();
+    }
+
+    // Get screen position for the context menu
+    const appWindow = getCurrentWindow();
+    const windowPos = await appWindow.outerPosition();
+    const factor = await appWindow.scaleFactor();
+
+    const menuX = (windowPos.x / factor) + e.clientX;
+    const menuY = (windowPos.y / factor) + e.clientY;
+
+    // Create context menu window
+    const menuWindow = new WebviewWindow("contextmenu", {
+      url: "index.html?contextmenu=true",
+      title: "",
+      width: CONTEXT_MENU_WIDTH,
+      height: CONTEXT_MENU_HEIGHT,
+      x: Math.round(menuX),
+      y: Math.round(menuY),
+      resizable: false,
+      decorations: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      shadow: false,
+      focus: true,
+    });
+
+    menuWindow.once("tauri://error", (e) => {
+      console.error("[App] Context menu window error:", e);
+    });
+  };
+
   return (
     <div
       className="mascot-container"
@@ -472,6 +531,7 @@ function App() {
           emotion={mascot.emotion}
           onClick={handleClick}
           onMouseDown={handleClawdMouseDown}
+          onContextMenu={handleContextMenu}
         />
       </div>
     </div>

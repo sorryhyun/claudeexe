@@ -1,25 +1,51 @@
 # Frontend (React / TypeScript)
 
-## Key Files
+## Directory Structure
 
-- `App.tsx` - Main component orchestrating physics, mascot state, and user interactions (drag, click, double-click)
-- `Clawd.tsx` - SVG-based mascot component with CSS animations for different states
-- `useMascotState.ts` - State machine managing mascot states: idle, walking, talking, jumping, falling
-- `usePhysics.ts` - Physics engine handling gravity, collisions, walking, and window positioning via Tauri APIs
-- `emotions.ts` - Emotion types (neutral, happy, sad, excited, thinking, confused, surprised)
-- `styles.css` - CSS animations for mascot states (idle bobbing, walking, jumping, falling, talking)
+```
+src/
+├── components/       # React components
+├── hooks/            # Custom React hooks
+├── services/         # Backend integration (Tauri IPC, agent service)
+├── types/            # Centralized type exports
+├── styles/           # CSS modules
+├── constants.ts      # App-wide constants
+├── emotions.ts       # Emotion types and visual config
+└── main.tsx          # Entry point with routing
+```
 
-## Chat Components
+## Components (`components/`)
 
-- `ChatWindow.tsx` - Chat UI container
-- `ChatInput.tsx` - Message input component
-- `SpeechBubble.tsx` - Message display bubble
-- `useChatHistory.ts` - Chat message state management
+| File | Description |
+|------|-------------|
+| `App.tsx` | Main orchestrator: physics, mascot state, drag/click handlers, window management |
+| `Clawd.tsx` | SVG mascot with emotion-based eyes/eyebrows and state animations |
+| `ChatWindow.tsx` | Chat UI container with message list and input |
+| `ChatInput.tsx` | Message input form |
+| `SpeechBubble.tsx` | Message bubble with markdown code block support |
+| `ContextMenuWindow.tsx` | Right-click context menu |
+
+## Hooks (`hooks/`)
+
+| File | Description |
+|------|-------------|
+| `useMascotState.ts` | State machine: idle, walking, talking, jumping, falling + emotions |
+| `usePhysics.ts` | Physics engine: gravity, collisions, walking, window positioning |
+| `useAgentChat.ts` | Claude agent integration with streaming and tool tracking |
+| `useChatHistory.ts` | Wrapper around useAgentChat for backward compatibility |
+
+## Services (`services/`)
+
+| File | Description |
+|------|-------------|
+| `agentService.ts` | Tauri IPC bridge to sidecar agent |
+| `agentTypes.ts` | TypeScript interfaces for agent messages |
+| `emotionMapper.ts` | Detects emotions from message content |
 
 ## Key Behaviors
 
 - **Physics**: Window moves via Tauri's `setPosition` API with gravity, floor/wall collisions, and bounce effects
-- **Auto-walk**: Randomly triggers walking behavior every 3-10 seconds
-- **Interactions**: Single-click toggles chat; double-click toggles physics; drag repositions window
+- **Auto-walk**: Randomly triggers walking every 15-45 seconds (30% chance)
+- **Interactions**: Click toggles chat; double-click toggles physics; drag repositions
 - **Direction**: Mascot faces left/right via CSS `scaleX(-1)` transform
-- **Emotions**: Separate from physical states; Claude sets via `set_emotion` tool, frontend receives via Tauri events
+- **Emotions**: Set via agent's `set_emotion` tool, received via Tauri events

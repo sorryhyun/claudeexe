@@ -1,6 +1,13 @@
 import { useRef, useCallback, useEffect } from "react";
 import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
+import {
+  TASKBAR_HEIGHT,
+  SCREEN_BOUNDS_UPDATE_INTERVAL,
+  DEFAULT_PHYSICS_CONFIG,
+  MIN_BOUNCE_VELOCITY,
+  MIN_VELOCITY_THRESHOLD,
+} from "../constants";
 
 interface PhysicsState {
   x: number;
@@ -17,21 +24,13 @@ interface ScreenBounds {
   taskbarHeight: number;
 }
 
-interface PhysicsConfig {
+export interface PhysicsConfig {
   gravity: number;
   friction: number;
   bounceFactor: number;
   walkSpeed: number;
   jumpForce: number;
 }
-
-const DEFAULT_CONFIG: PhysicsConfig = {
-  gravity: 0.5,
-  friction: 0.95,
-  bounceFactor: 0.6,
-  walkSpeed: 2,
-  jumpForce: -12,
-};
 
 interface UsePhysicsOptions {
   windowWidth: number;
@@ -50,7 +49,7 @@ export function usePhysics({
   onEdgeHit,
   config = {},
 }: UsePhysicsOptions) {
-  const physicsConfig = { ...DEFAULT_CONFIG, ...config };
+  const physicsConfig = { ...DEFAULT_PHYSICS_CONFIG, ...config };
   const stateRef = useRef<PhysicsState>({
     x: 100,
     y: 100,
@@ -71,8 +70,6 @@ export function usePhysics({
       const appWindow = getCurrentWindow();
       const scaleFactor = await appWindow.scaleFactor();
       if (monitor) {
-        // Windows taskbar is typically 40-48px in logical pixels
-        const TASKBAR_HEIGHT = 48;
         // Convert physical pixels to logical pixels to match state coordinates
         screenBoundsRef.current = {
           width: monitor.size.width / scaleFactor,
@@ -137,9 +134,9 @@ export function usePhysics({
   const frameCountRef = useRef(0);
 
   const physicsStep = useCallback(async () => {
-    // Update screen bounds periodically (every 60 frames ~1 second) to handle monitor changes
+    // Update screen bounds periodically to handle monitor changes
     frameCountRef.current++;
-    if (!screenBoundsRef.current || frameCountRef.current % 60 === 0) {
+    if (!screenBoundsRef.current || frameCountRef.current % SCREEN_BOUNDS_UPDATE_INTERVAL === 0) {
       await updateScreenBounds();
       if (!screenBoundsRef.current) return;
     }
@@ -176,7 +173,7 @@ export function usePhysics({
     } else {
       // Apply friction when not walking
       state.velocityX *= physicsConfig.friction;
-      if (Math.abs(state.velocityX) < 0.1) {
+      if (Math.abs(state.velocityX) < MIN_VELOCITY_THRESHOLD) {
         state.velocityX = 0;
       }
     }
@@ -190,7 +187,7 @@ export function usePhysics({
     if (state.y >= floorY) {
       state.y = floorY;
       if (state.velocityY > 0) {
-        if (state.velocityY > 5) {
+        if (state.velocityY > MIN_BOUNCE_VELOCITY) {
           state.velocityY = -state.velocityY * physicsConfig.bounceFactor;
         } else {
           state.velocityY = 0;

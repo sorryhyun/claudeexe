@@ -1,4 +1,4 @@
-import type { MascotState } from "../useMascotState";
+import type { MascotState } from "../hooks/useMascotState";
 import type { Emotion } from "../emotions";
 
 // Streaming message state

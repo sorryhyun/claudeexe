@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { Emotion } from "./emotions";
+import type { Emotion } from "../emotions";
+import { EMOTION_RESET_DURATION, TALK_DURATION } from "../constants";
 
 export type MascotState = "idle" | "walking" | "talking" | "jumping" | "falling";
 export type Direction = "left" | "right";
@@ -43,7 +44,7 @@ export function useMascotState(): MascotStateManager {
     setState("talking");
     stateTimeoutRef.current = window.setTimeout(() => {
       setStateInternal("idle");
-    }, 2000);
+    }, TALK_DURATION);
   }, [setState]);
 
   const setEmotion = useCallback((newEmotion: Emotion, duration?: number) => {
@@ -53,9 +54,9 @@ export function useMascotState(): MascotStateManager {
     }
     setEmotionInternal(newEmotion);
 
-    // Auto-reset to neutral after duration (default 5 seconds)
+    // Auto-reset to neutral after duration (default from constants)
     if (newEmotion !== "neutral") {
-      const resetDuration = duration ?? 5000;
+      const resetDuration = duration ?? EMOTION_RESET_DURATION;
       emotionTimeoutRef.current = window.setTimeout(() => {
         setEmotionInternal("neutral");
       }, resetDuration);

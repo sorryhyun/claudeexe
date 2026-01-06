@@ -1,5 +1,5 @@
-import { MascotState, Direction } from "./useMascotState";
-import { type Emotion, EMOTION_CONFIG } from "./emotions";
+import { MascotState, Direction } from "../hooks/useMascotState";
+import { type Emotion, EMOTION_CONFIG } from "../emotions";
 
 interface ClawdProps {
   state: MascotState;
@@ -8,9 +8,10 @@ interface ClawdProps {
   onClick?: (e: React.MouseEvent) => void;
   onMouseDown?: (e: React.MouseEvent) => void;
   onDoubleClick?: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, onDoubleClick }: ClawdProps) {
+function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
   const getAnimationClass = () => {
     switch (state) {
       case "walking":
@@ -42,6 +43,7 @@ function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, on
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       style={{
         transform: `${direction === "left" ? "scaleX(-1)" : "scaleX(1)"} ${emotion === "curious" ? "rotate(-10deg)" : ""}`,
       }}

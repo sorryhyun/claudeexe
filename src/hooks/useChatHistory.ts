@@ -1,6 +1,6 @@
-import { useAgentChat } from "./hooks/useAgentChat";
-import type { Emotion } from "./emotions";
-import type { AgentChatMessage, StreamingState } from "./services/agentTypes";
+import { useAgentChat } from "./useAgentChat";
+import type { Emotion } from "../emotions";
+import type { AgentChatMessage, StreamingState } from "../services/agentTypes";
 
 // Re-export ChatMessage type for backward compatibility
 export type ChatMessage = AgentChatMessage;

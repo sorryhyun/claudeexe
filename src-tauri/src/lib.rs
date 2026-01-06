@@ -318,6 +318,13 @@ fn stop_sidecar() {
     *SIDECAR_STDIN.lock().unwrap() = None;
 }
 
+/// Quit the application
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    stop_sidecar();
+    app.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -326,7 +333,8 @@ pub fn run() {
             send_agent_message,
             clear_agent_session,
             get_session_id,
-            stop_sidecar
+            stop_sidecar,
+            quit_app
         ])
         .setup(|app| {
             // Load persisted session ID from disk
