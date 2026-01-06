@@ -114,31 +114,9 @@
   }
 }
 
-/* Talking animation */
+/* Talking state - static, uses curious emotion tilt */
 .clawd-talking {
-  animation: talk-bounce 0.2s ease-in-out infinite;
-}
-
-@keyframes talk-bounce {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(-2px) scale(1.02);
-  }
-}
-
-.clawd-talking .clawd-eye {
-  animation: talk-eyes 0.5s ease-in-out infinite;
-}
-
-@keyframes talk-eyes {
-  0%, 30%, 70%, 100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(1.2);
-  }
+  /* No animation - relies on curious emotion styling */
 }
 
 /* Landing squash effect (applied temporarily via JS) */
@@ -158,31 +136,3 @@
   }
 }
 
-/* Speech indicator animation */
-.speech-indicator {
-  animation: speech-pop 0.3s ease-out forwards;
-}
-
-@keyframes speech-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.5) translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.speech-indicator ellipse {
-  animation: speech-pulse 0.5s ease-in-out infinite alternate;
-}
-
-@keyframes speech-pulse {
-  0% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 1;
-  }
-}

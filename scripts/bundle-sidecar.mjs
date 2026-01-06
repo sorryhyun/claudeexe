@@ -9,7 +9,7 @@
 import { build } from "esbuild";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { copyFileSync, mkdirSync, existsSync } from "fs";
+import { copyFileSync, mkdirSync, existsSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -41,16 +41,31 @@ async function bundle() {
   });
   console.log("  Created: sidecar-dist/agent-sidecar.cjs");
 
-  // Copy prompt.txt alongside the bundle
+  // Copy prompt files alongside the bundle
   copyFileSync(
     join(rootDir, "sidecar/prompt.txt"),
     join(outDir, "prompt.txt")
   );
   console.log("  Copied: prompt.txt");
 
+  // Copy dev prompt if it exists
+  const devPromptPath = join(rootDir, "sidecar/dev-prompt.txt");
+  if (existsSync(devPromptPath)) {
+    copyFileSync(devPromptPath, join(outDir, "dev-prompt.txt"));
+    console.log("  Copied: dev-prompt.txt");
+  }
+
   // Step 2: Compile with pkg
   console.log("\nStep 2: Compiling with pkg...");
-  const pkgCmd = `npx @yao-pkg/pkg "${join(outDir, "agent-sidecar.cjs")}" --target node20-win-x64 --output "${join(outDir, "agent-sidecar.exe")}" --assets "${join(outDir, "prompt.txt")}"`;
+
+  // Build assets list (prompt files)
+  const assets = [join(outDir, "prompt.txt")];
+  if (existsSync(join(outDir, "dev-prompt.txt"))) {
+    assets.push(join(outDir, "dev-prompt.txt"));
+  }
+  const assetsArg = assets.map(a => `"${a}"`).join(",");
+
+  const pkgCmd = `npx @yao-pkg/pkg "${join(outDir, "agent-sidecar.cjs")}" --target node20-win-x64 --output "${join(outDir, "agent-sidecar.exe")}" --assets ${assetsArg}`;
 
   try {
     const { stdout, stderr } = await execAsync(pkgCmd, { cwd: rootDir });
@@ -61,11 +76,31 @@ async function bundle() {
     throw error;
   }
 
+  // Step 3: Build dev executable (with CLAWD_DEV_MODE=1 baked in)
+  console.log("\nStep 3: Building dev executable...");
+
+  // Create dev entry point that sets dev mode
+  const devEntry = `process.env.CLAWD_DEV_MODE = '1';\nrequire('./agent-sidecar.cjs');`;
+  writeFileSync(join(outDir, "agent-sidecar-dev.cjs"), devEntry);
+  console.log("  Created: agent-sidecar-dev.cjs");
+
+  const devPkgCmd = `npx @yao-pkg/pkg "${join(outDir, "agent-sidecar-dev.cjs")}" --target node20-win-x64 --output "${join(outDir, "agent-sidecar-dev.exe")}" --assets ${assetsArg}`;
+
+  try {
+    const { stdout, stderr } = await execAsync(devPkgCmd, { cwd: rootDir });
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+  } catch (error) {
+    console.error("Dev exe compilation failed:", error.message);
+    throw error;
+  }
+
   console.log("\nSidecar bundled successfully!");
-  console.log(`  Output: ${join(outDir, "agent-sidecar.exe")}`);
+  console.log(`  Output: ${join(outDir, "agent-sidecar.exe")} (mascot mode)`);
+  console.log(`  Output: ${join(outDir, "agent-sidecar-dev.exe")} (dev mode)`);
   console.log("\nTo use in production build:");
-  console.log("  1. Copy sidecar-dist/agent-sidecar.exe to src-tauri/binaries/");
-  console.log("  2. Copy sidecar-dist/prompt.txt to src-tauri/binaries/");
+  console.log("  1. Copy sidecar-dist/*.exe to src-tauri/binaries/");
+  console.log("  2. Copy sidecar-dist/*.txt to src-tauri/binaries/");
 }
 
 bundle().catch((err) => {

@@ -18,6 +18,14 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createAllTools } from "./tools/index.mjs";
 
+/**
+ * Check if running in dev mode (Claude Code features enabled)
+ */
+function isDevMode() {
+  return process.env.CLAWD_DEV_MODE === '1' ||
+         process.argv.includes('--dev');
+}
+
 // Load system prompt from file
 // Works for both ESM (import.meta.url) and bundled exe (process.execPath)
 function getPromptPath() {
@@ -46,6 +54,45 @@ function getPromptPath() {
 }
 
 const SYSTEM_PROMPT = readFileSync(getPromptPath(), "utf-8").trim();
+
+// Load dev mode personality prompt (appended to Claude Code's system prompt)
+function getDevPromptPath() {
+  // Try import.meta.url first (ESM mode)
+  try {
+    if (import.meta.url) {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const path = join(__dirname, "dev-prompt.txt");
+      if (existsSync(path)) return path;
+    }
+  } catch (e) {
+    // Not in ESM mode
+  }
+
+  // For pkg bundled exe
+  const exeDir = dirname(process.execPath);
+  const exePath = join(exeDir, "dev-prompt.txt");
+  if (existsSync(exePath)) return exePath;
+
+  // Fallback
+  const snapshotPath = join(process.cwd(), "dev-prompt.txt");
+  if (existsSync(snapshotPath)) return snapshotPath;
+
+  return null;
+}
+
+// Load dev prompt if available
+const DEV_PERSONALITY_PROMPT = (() => {
+  const path = getDevPromptPath();
+  if (path) {
+    try {
+      return readFileSync(path, "utf-8").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+  return "";
+})();
 
 // Current session ID
 let currentSessionId = null;
@@ -86,11 +133,60 @@ async function initializeClaude() {
 let clawdMcpServer = null;
 
 /**
+ * Build options for mascot mode (default)
+ */
+function buildMascotOptions(sessionId, mcpServer) {
+  const options = {
+    systemPrompt: SYSTEM_PROMPT,
+    permissionMode: "bypassPermissions",
+  };
+  if (mcpServer) {
+    options.mcpServers = { "clawd": mcpServer };
+  }
+  if (sessionId) {
+    options.resume = sessionId;
+  }
+  return options;
+}
+
+/**
+ * Build options for dev mode (Claude Code features)
+ */
+function buildDevOptions(sessionId, mcpServer) {
+  const options = {
+    // Use Claude Code's system prompt with appended mascot personality
+    systemPrompt: {
+      type: 'preset',
+      preset: 'claude_code',
+      append: DEV_PERSONALITY_PROMPT,
+    },
+    // Load settings from CLAUDE.md files
+    settingSources: ['user', 'project', 'local'],
+    // Use Claude Code's full toolset
+    tools: { type: 'preset', preset: 'claude_code' },
+    // Use current working directory (user's project)
+    cwd: process.cwd(),
+    // Permission handling
+    permissionMode: "bypassPermissions",
+  };
+  // Add mascot MCP tools alongside Claude Code tools
+  if (mcpServer) {
+    options.mcpServers = { "clawd": mcpServer };
+  }
+  if (sessionId) {
+    options.resume = sessionId;
+  }
+  return options;
+}
+
+/**
  * Handle a query using the Claude Agent SDK
  */
 async function handleQuery({ prompt, sessionId }) {
+  const devMode = isDevMode();
   log(`Handling query: "${prompt.substring(0, 50)}..."`);
   log(`Session ID: ${sessionId || "new session"}`);
+  log(`Mode: ${devMode ? "DEV" : "MASCOT"}`);
 
   try {
     // Create MCP server if not exists (for SDK MCP tools)
@@ -102,23 +198,10 @@ async function handleQuery({ prompt, sessionId }) {
       log(`Created MCP server: ${clawdMcpServer.name}`);
     }
 
-    // Build query options
-    const options = {
-      systemPrompt: SYSTEM_PROMPT,
-      permissionMode: "bypassPermissions",
-    };
-
-    // Add MCP server if available - pass directly, it already has { type, name, instance }
-    if (clawdMcpServer) {
-      options.mcpServers = {
-        "clawd": clawdMcpServer,
-      };
-    }
-
-    // Resume session if provided
-    if (sessionId) {
-      options.resume = sessionId;
-    }
+    // Build query options based on mode
+    const options = devMode
+      ? buildDevOptions(sessionId, clawdMcpServer)
+      : buildMascotOptions(sessionId, clawdMcpServer);
 
     let fullText = "";
     let newSessionId = sessionId;
@@ -221,8 +304,9 @@ async function main() {
   process.stdin.resume();
 
   // Signal ready
-  log("Clawd Agent Sidecar ready");
-  emit({ type: "ready" });
+  const devMode = isDevMode();
+  log(`Clawd Agent Sidecar ready (${devMode ? "DEV" : "MASCOT"} mode)`);
+  emit({ type: "ready", mode: devMode ? "dev" : "mascot" });
 }
 
 main().catch((err) => {

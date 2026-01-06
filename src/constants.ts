@@ -5,7 +5,7 @@
 // Window dimensions (logical pixels)
 export const WINDOW_WIDTH = 160;
 export const WINDOW_HEIGHT = 140;
-export const CHAT_WIDTH = 220;
+export const CHAT_WIDTH = 280;
 export const CHAT_HEIGHT = 280;
 export const CONTEXT_MENU_WIDTH = 130;
 export const CONTEXT_MENU_HEIGHT = 72;

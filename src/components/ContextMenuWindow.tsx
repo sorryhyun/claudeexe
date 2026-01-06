@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
+import { emitTo } from "@tauri-apps/api/event";
 
 function ContextMenuWindow() {
   // Close when losing focus (clicking outside)
   useEffect(() => {
     const win = getCurrentWindow();
+    let blurTimeout: number | null = null;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -14,10 +15,16 @@ function ContextMenuWindow() {
       }
     };
 
-    // Close when window loses focus
+    // Close when window loses focus (with delay to allow click handlers to run first)
     const unlisten = win.onFocusChanged(async ({ payload: focused }) => {
       if (!focused) {
-        await win.close();
+        // Small delay to allow button clicks to execute before closing
+        blurTimeout = window.setTimeout(async () => {
+          await win.close();
+        }, 100);
+      } else if (blurTimeout) {
+        clearTimeout(blurTimeout);
+        blurTimeout = null;
       }
     });
 
@@ -25,20 +32,21 @@ function ContextMenuWindow() {
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      if (blurTimeout) clearTimeout(blurTimeout);
       unlisten.then((fn) => fn());
     };
   }, []);
 
   const handleChatHistory = async () => {
-    await emit("open-chat-history");
+    // Emit to main window (not current context menu window)
+    await emitTo("main", "open-chat-history");
     const win = getCurrentWindow();
     await win.close();
   };
 
   const handleExit = async () => {
-    const win = getCurrentWindow();
-    await win.close();
-    await invoke("quit_app");
+    // Invoke quit first - app will exit before this returns
+    invoke("quit_app");
   };
 
   return (

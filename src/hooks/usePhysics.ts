@@ -234,6 +234,8 @@ export function usePhysics({
     };
 
     updateScreenBounds().then(() => {
+      // Check again after async operation in case stopPhysics was called
+      if (!isRunningRef.current) return;
       animationFrameRef.current = requestAnimationFrame(loop);
     });
   }, [physicsStep, updateScreenBounds]);

@@ -11,7 +11,9 @@ interface ClawdProps {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
+function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
+  // When talking, show curious emotion unless overridden
+  const emotion = state === "talking" && emotionProp === "neutral" ? "curious" : emotionProp;
   const getAnimationClass = () => {
     switch (state) {
       case "walking":
@@ -120,12 +122,6 @@ function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, on
         </g>
       </g>
 
-      {/* Speech bubble for talking state */}
-      {state === "talking" && (
-        <g className="speech-indicator">
-          <ellipse cx="20" cy="2" rx="2" ry="1.5" fill="white" stroke="#333" strokeWidth="0.3" />
-        </g>
-      )}
 
       {/* Thinking bubble for thinking emotion */}
       {emotion === "thinking" && (
@@ -153,7 +149,7 @@ function Clawd({ state, direction, emotion = "neutral", onClick, onMouseDown, on
       {/* Curious question mark */}
       {emotion === "curious" && (
         <g className="curious-indicator">
-          <text x="19" y="2" fontSize="3" fill="#4A90D9" fontWeight="bold">?</text>
+          <text x="18" y="3" fontSize="5" fill="#999" fontWeight="bold">?</text>
         </g>
       )}
     </svg>

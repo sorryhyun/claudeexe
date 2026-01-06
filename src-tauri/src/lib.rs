@@ -19,6 +19,9 @@ static SIDECAR_STDIN: Mutex<Option<ChildStdin>> = Mutex::new(None);
 /// Current session ID (maintained by sidecar, cached here)
 static SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 
+/// Dev mode flag (Claude Code features enabled)
+static DEV_MODE: Mutex<bool> = Mutex::new(false);
+
 /// Get the session file path for persistence
 fn get_session_file_path() -> Option<PathBuf> {
     dirs::data_local_dir().map(|d| d.join("claude-mascot").join("session.txt"))
@@ -162,6 +165,13 @@ fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    // Pass dev mode to sidecar via environment variable
+    let dev_mode = *DEV_MODE.lock().unwrap();
+    if dev_mode {
+        cmd.env("CLAWD_DEV_MODE", "1");
+        println!("[Rust] Spawning sidecar in DEV mode");
+    }
 
     let mut child = cmd
         .spawn()
@@ -322,11 +332,46 @@ fn stop_sidecar() {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     stop_sidecar();
+
+    // Close all windows properly before exiting
+    for (_, window) in app.webview_windows() {
+        let _ = window.close();
+    }
+
     app.exit(0);
+}
+
+/// Check if running in dev mode
+#[tauri::command]
+fn is_dev_mode() -> bool {
+    *DEV_MODE.lock().unwrap()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Check executable name for dev mode (e.g., claude_mascot_dev.exe)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_name) = exe_path.file_stem().and_then(|s| s.to_str()) {
+            if exe_name.contains("_dev") || exe_name.contains("-dev") {
+                *DEV_MODE.lock().unwrap() = true;
+                println!("[Rust] DEV mode enabled via executable name: {}", exe_name);
+            }
+        }
+    }
+
+    // Check for --dev argument
+    let args: Vec<String> = std::env::args().collect();
+    if args.contains(&"--dev".to_string()) {
+        *DEV_MODE.lock().unwrap() = true;
+        println!("[Rust] DEV mode enabled via --dev flag");
+    }
+
+    // Also check CLAWD_DEV_MODE environment variable
+    if std::env::var("CLAWD_DEV_MODE").unwrap_or_default() == "1" {
+        *DEV_MODE.lock().unwrap() = true;
+        println!("[Rust] DEV mode enabled via CLAWD_DEV_MODE env var");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
@@ -334,7 +379,8 @@ pub fn run() {
             clear_agent_session,
             get_session_id,
             stop_sidecar,
-            quit_app
+            quit_app,
+            is_dev_mode
         ])
         .setup(|app| {
             // Load persisted session ID from disk
@@ -357,6 +403,10 @@ pub fn run() {
                     "quit" => {
                         // Stop sidecar before quitting
                         stop_sidecar();
+                        // Close all windows properly before exiting
+                        for (_, window) in app.webview_windows() {
+                            let _ = window.close();
+                        }
                         app.exit(0);
                     }
                     "show" => {
