@@ -1,0 +1,43 @@
+/* Supiki mascot styles */
+
+.supiki {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+/* Hover effect */
+.supiki:hover {
+  filter: brightness(1.1);
+}
+
+/* Click feedback */
+.supiki:active {
+  transform: scale(0.95) !important;
+}
+
+/* Idle state - no animation */
+.supiki-idle {
+  /* Static */
+}
+
+/* Walking animation - no vertical movement */
+.supiki-walking {
+  /* Static */
+}
+
+/* Jumping animation - no vertical movement */
+.supiki-jumping {
+  /* Static */
+}
+
+/* Falling animation - no vertical movement */
+.supiki-falling {
+  /* Static */
+}
+
+/* Talking state - no animation */
+.supiki-talking {
+  /* Static */
+}

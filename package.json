@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "dev:clawd": "cross-env CLAWD_DEV_MODE=1 tauri dev",
+    "dev-supiki": "cross-env VITE_MASCOT_TYPE=supiki tauri dev",
     "build": "npm run bundle:sidecar && tauri build && node scripts/create-dev-exe.mjs",
     "build:standalone": "npm run bundle:sidecar && tauri build && node scripts/create-dev-exe.mjs",
     "bundle:sidecar": "node scripts/bundle-sidecar.mjs",

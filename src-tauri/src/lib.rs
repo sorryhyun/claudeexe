@@ -22,6 +22,9 @@ static SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 /// Dev mode flag (Claude Code features enabled)
 static DEV_MODE: Mutex<bool> = Mutex::new(false);
 
+/// Supiki mode flag (Supiki mascot instead of Clawd)
+static SUPIKI_MODE: Mutex<bool> = Mutex::new(false);
+
 /// Get the session file path for persistence
 fn get_session_file_path() -> Option<PathBuf> {
     dirs::data_local_dir().map(|d| d.join("claude-mascot").join("session.txt"))
@@ -330,14 +333,24 @@ fn is_dev_mode() -> bool {
     *DEV_MODE.lock().unwrap()
 }
 
+/// Check if running in supiki mode
+#[tauri::command]
+fn is_supiki_mode() -> bool {
+    *SUPIKI_MODE.lock().unwrap()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Check executable name for dev mode (e.g., claude_mascot_dev.exe)
+    // Check executable name for dev mode and supiki mode
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_name) = exe_path.file_stem().and_then(|s| s.to_str()) {
             if exe_name.contains("_dev") || exe_name.contains("-dev") {
                 *DEV_MODE.lock().unwrap() = true;
                 println!("[Rust] DEV mode enabled via executable name: {}", exe_name);
+            }
+            if exe_name.contains("supiki") {
+                *SUPIKI_MODE.lock().unwrap() = true;
+                println!("[Rust] SUPIKI mode enabled via executable name: {}", exe_name);
             }
         }
     }
@@ -363,7 +376,8 @@ pub fn run() {
             get_session_id,
             stop_sidecar,
             quit_app,
-            is_dev_mode
+            is_dev_mode,
+            is_supiki_mode
         ])
         .setup(|app| {
             // Start with fresh session on each launch

@@ -16,7 +16,52 @@ import { createInterface } from "readline";
 import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { homedir } from "os";
 import { createAllTools } from "./tools/index.mjs";
+
+/**
+ * Auto-load credentials from ~/.claude/.credentials.json if ANTHROPIC_API_KEY is not set.
+ * This allows the exe to work with existing Claude CLI login (OAuth).
+ */
+function loadCredentialsIfNeeded() {
+  // Skip if API key already set
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { source: 'env', loaded: false };
+  }
+
+  // Try to load from ~/.claude/.credentials.json
+  const credPath = join(homedir(), '.claude', '.credentials.json');
+  if (!existsSync(credPath)) {
+    return { source: 'none', loaded: false, error: 'No credentials file found' };
+  }
+
+  try {
+    const creds = JSON.parse(readFileSync(credPath, 'utf-8'));
+    const oauth = creds.claudeAiOauth;
+
+    if (!oauth || !oauth.accessToken) {
+      return { source: 'none', loaded: false, error: 'No OAuth token in credentials' };
+    }
+
+    // Check if token is expired
+    if (oauth.expiresAt && Date.now() > oauth.expiresAt) {
+      return { source: 'none', loaded: false, error: 'OAuth token expired' };
+    }
+
+    // Set the access token as ANTHROPIC_API_KEY
+    process.env.ANTHROPIC_API_KEY = oauth.accessToken;
+    return {
+      source: 'oauth',
+      loaded: true,
+      expiresAt: oauth.expiresAt ? new Date(oauth.expiresAt).toISOString() : 'unknown'
+    };
+  } catch (e) {
+    return { source: 'none', loaded: false, error: e.message };
+  }
+}
+
+// Load credentials early, before SDK initialization
+const credentialsResult = loadCredentialsIfNeeded();
 
 /**
  * Check if running in dev mode (Claude Code features enabled)
@@ -133,13 +178,40 @@ async function initializeClaude() {
 let clawdMcpServer = null;
 
 /**
+ * Get path to Claude Code CLI executable
+ * Uses system installation (required for bundled exe since import.meta.url is undefined)
+ */
+function getCliPath() {
+  const claudePaths = [
+    process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'claude', 'claude.exe'),
+    join(homedir(), '.local', 'bin', 'claude.exe'),
+    join(homedir(), '.local', 'bin', 'claude'),
+  ].filter(Boolean);
+
+  for (const claudePath of claudePaths) {
+    if (existsSync(claudePath)) {
+      log(`Using system Claude CLI: ${claudePath}`);
+      return claudePath;
+    }
+  }
+
+  // Not found - return null and let SDK handle it (will fail if running as bundled exe)
+  log('Warning: Claude CLI not found in system paths');
+  return null;
+}
+
+/**
  * Build options for mascot mode (default)
  */
 function buildMascotOptions(sessionId, mcpServer) {
+  const cliPath = getCliPath();
   const options = {
     systemPrompt: SYSTEM_PROMPT,
     permissionMode: "bypassPermissions",
   };
+  if (cliPath) {
+    options.pathToClaudeCodeExecutable = cliPath;
+  }
   if (mcpServer) {
     options.mcpServers = { "clawd": mcpServer };
   }
@@ -153,6 +225,7 @@ function buildMascotOptions(sessionId, mcpServer) {
  * Build options for dev mode (Claude Code features)
  */
 function buildDevOptions(sessionId, mcpServer) {
+  const cliPath = getCliPath();
   const options = {
     // Use Claude Code's system prompt with appended mascot personality
     systemPrompt: {
@@ -169,6 +242,9 @@ function buildDevOptions(sessionId, mcpServer) {
     // Permission handling
     permissionMode: "bypassPermissions",
   };
+  if (cliPath) {
+    options.pathToClaudeCodeExecutable = cliPath;
+  }
   // Add mascot MCP tools alongside Claude Code tools
   if (mcpServer) {
     options.mcpServers = { "clawd": mcpServer };
@@ -288,6 +364,15 @@ async function handleCommand(line) {
 // Initialize and start
 async function main() {
   log("Clawd Agent Sidecar starting...");
+
+  // Log credentials status
+  if (credentialsResult.loaded) {
+    log(`Credentials loaded from OAuth (expires: ${credentialsResult.expiresAt})`);
+  } else if (credentialsResult.source === 'env') {
+    log("Using ANTHROPIC_API_KEY from environment");
+  } else {
+    log(`Warning: ${credentialsResult.error || 'No credentials found'}. Set ANTHROPIC_API_KEY or run 'claude login'.`);
+  }
 
   // Initialize Claude implementation
   await initializeClaude();
