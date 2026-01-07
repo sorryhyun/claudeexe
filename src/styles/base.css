@@ -99,7 +99,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 4px 10px;
   background: #BD825D;
   color: white;
   cursor: grab;
@@ -111,7 +111,7 @@ body,
 }
 
 .history-list-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 

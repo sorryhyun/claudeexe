@@ -125,18 +125,31 @@ function ChatWindow() {
         <span className="chat-window-title">
           {isViewMode ? "Chat History" : "Chat with Clawd"}
         </span>
-        <button
-          className="chat-window-close"
-          onClick={async () => {
-            if (!isViewMode) {
-              emit("chat-closed");
-            }
-            const appWindow = getCurrentWindow();
-            await appWindow.close();
-          }}
-        >
-          x
-        </button>
+        <div className="chat-window-buttons">
+          {!isViewMode && (
+            <button
+              className="chat-window-refresh"
+              onClick={() => {
+                chat.clearHistory();
+              }}
+              title="Start new chat"
+            >
+              ↻
+            </button>
+          )}
+          <button
+            className="chat-window-close"
+            onClick={async () => {
+              if (!isViewMode) {
+                emit("chat-closed");
+              }
+              const appWindow = getCurrentWindow();
+              await appWindow.close();
+            }}
+          >
+            x
+          </button>
+        </div>
       </div>
       <div className="chat-window-body">
         {/* Tool indicator when agent is using tools */}

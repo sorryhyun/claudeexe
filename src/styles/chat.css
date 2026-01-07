@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 4px 10px;
   background: #BD825D;
   color: white;
   cursor: grab;
@@ -50,6 +50,32 @@
 }
 
 .chat-window-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-window-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-window-refresh {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.chat-window-refresh:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -170,11 +196,11 @@
 .chat-input-form {
   display: flex;
   gap: 6px;
-  padding: 8px;
+  padding: 6px;
   background: #ffffff;
   border-radius: 10px;
   border: 2px solid #e0e0e0;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .chat-input {
@@ -182,7 +208,7 @@
   border: none;
   outline: none;
   font-size: 12px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   background: transparent;
   color: #333;
   min-width: 0;
@@ -194,14 +220,14 @@
 }
 
 .chat-send-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: #BD825D;
   color: white;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;

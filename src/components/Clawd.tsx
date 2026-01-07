@@ -12,7 +12,7 @@ interface ClawdProps {
 }
 
 function Clawd({ animationState, direction, emotion: emotionProp = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
-  // When talking, show curious emotion unless overridden
+  // When talking and no active emotion (neutral), show curious
   const emotion = animationState === "talking" && emotionProp === "neutral" ? "curious" : emotionProp;
   // Convert emotion to facial state for visual rendering
   const facialState = emotionToFacial(emotion);

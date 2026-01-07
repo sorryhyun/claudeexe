@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { AgentQuestion } from "../services/agentTypes";
-import "./QuestionModal.css";
+import "../styles/questionmodal.css";
 
 interface QuestionModalProps {
   questionId: string;
@@ -15,6 +15,8 @@ function QuestionModal({
   onSubmit,
   onCancel,
 }: QuestionModalProps) {
+  // Track current question index for navigation
+  const [currentIndex, setCurrentIndex] = useState(0);
   // Track selected answers for each question
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   // Track "Other" text input for each question
@@ -23,6 +25,12 @@ function QuestionModal({
   const [otherSelected, setOtherSelected] = useState<Record<string, boolean>>(
     {}
   );
+
+  // Current question and navigation state
+  const currentQuestion = questions[currentIndex];
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === questions.length - 1;
+  const hasMultipleQuestions = questions.length > 1;
 
   // Check if all questions have answers
   const allAnswered = questions.every((q) => {
@@ -94,6 +102,15 @@ function QuestionModal({
     onSubmit(formattedAnswers);
   }, [questions, answers, otherSelected, otherText, onSubmit]);
 
+  // Navigation handlers
+  const goToPrev = useCallback(() => {
+    if (!isFirst) setCurrentIndex((i) => i - 1);
+  }, [isFirst]);
+
+  const goToNext = useCallback(() => {
+    if (!isLast) setCurrentIndex((i) => i + 1);
+  }, [isLast]);
+
   // Keyboard handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -101,12 +118,16 @@ function QuestionModal({
         onCancel();
       } else if (e.key === "Enter" && allAnswered && !e.shiftKey) {
         handleSubmit();
+      } else if (e.key === "ArrowLeft" && hasMultipleQuestions) {
+        goToPrev();
+      } else if (e.key === "ArrowRight" && hasMultipleQuestions) {
+        goToNext();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [allAnswered, handleSubmit, onCancel]);
+  }, [allAnswered, handleSubmit, onCancel, hasMultipleQuestions, goToPrev, goToNext]);
 
   return (
     <div className="question-modal-overlay">
@@ -121,84 +142,103 @@ function QuestionModal({
         </div>
 
         <div className="question-modal-body">
-          {questions.map((question, index) => (
-            <div key={index} className="question-item">
-              <div className="question-header-tag">{question.header}</div>
-              <div className="question-text">{question.question}</div>
+          <div className="question-item">
+            <div className="question-header-tag">{currentQuestion.header}</div>
+            <div className="question-text">{currentQuestion.question}</div>
 
-              <div className="question-options">
-                {question.options.map((option, optIndex) => {
-                  const isSelected = (
-                    answers[question.question] || []
-                  ).includes(option.label);
+            <div className="question-options">
+              {currentQuestion.options.map((option, optIndex) => {
+                const isSelected = (
+                  answers[currentQuestion.question] || []
+                ).includes(option.label);
 
-                  return (
-                    <button
-                      key={optIndex}
-                      className={`question-option ${isSelected ? "selected" : ""}`}
-                      onClick={() => handleSelect(question, option.label)}
-                    >
-                      <span className="option-indicator">
-                        {question.multiSelect ? (
-                          isSelected ? "✓" : "○"
-                        ) : isSelected ? (
-                          "●"
-                        ) : (
-                          "○"
-                        )}
-                      </span>
-                      <div className="option-content">
-                        <div className="option-label">{option.label}</div>
-                        {option.description && (
-                          <div className="option-description">
-                            {option.description}
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                return (
+                  <button
+                    key={optIndex}
+                    className={`question-option ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelect(currentQuestion, option.label)}
+                  >
+                    <span className="option-indicator">
+                      {currentQuestion.multiSelect ? (
+                        isSelected ? "✓" : "○"
+                      ) : isSelected ? (
+                        "●"
+                      ) : (
+                        "○"
+                      )}
+                    </span>
+                    <div className="option-content">
+                      <div className="option-label">{option.label}</div>
+                      {option.description && (
+                        <div className="option-description">
+                          {option.description}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
 
-                {/* "Other" option */}
-                <button
-                  className={`question-option other-option ${otherSelected[question.question] ? "selected" : ""}`}
-                  onClick={() => handleOtherToggle(question)}
-                >
-                  <span className="option-indicator">
-                    {question.multiSelect ? (
-                      otherSelected[question.question] ? "✓" : "○"
-                    ) : otherSelected[question.question] ? (
-                      "●"
-                    ) : (
-                      "○"
-                    )}
-                  </span>
-                  <div className="option-content">
-                    <div className="option-label">Other</div>
-                  </div>
-                </button>
+              {/* "Other" option */}
+              <button
+                className={`question-option other-option ${otherSelected[currentQuestion.question] ? "selected" : ""}`}
+                onClick={() => handleOtherToggle(currentQuestion)}
+              >
+                <span className="option-indicator">
+                  {currentQuestion.multiSelect ? (
+                    otherSelected[currentQuestion.question] ? "✓" : "○"
+                  ) : otherSelected[currentQuestion.question] ? (
+                    "●"
+                  ) : (
+                    "○"
+                  )}
+                </span>
+                <div className="option-content">
+                  <div className="option-label">Other</div>
+                </div>
+              </button>
 
-                {otherSelected[question.question] && (
-                  <input
-                    type="text"
-                    className="other-input"
-                    placeholder="Enter your answer..."
-                    value={otherText[question.question] || ""}
-                    onChange={(e) =>
-                      setOtherText((prev) => ({
-                        ...prev,
-                        [question.question]: e.target.value,
-                      }))
-                    }
-                    autoFocus
-                  />
-                )}
-              </div>
+              {otherSelected[currentQuestion.question] && (
+                <input
+                  type="text"
+                  className="other-input"
+                  placeholder="Enter your answer..."
+                  value={otherText[currentQuestion.question] || ""}
+                  onChange={(e) =>
+                    setOtherText((prev) => ({
+                      ...prev,
+                      [currentQuestion.question]: e.target.value,
+                    }))
+                  }
+                  autoFocus
+                />
+              )}
             </div>
-          ))}
+          </div>
         </div>
 
         <div className="question-modal-footer">
+          {hasMultipleQuestions && (
+            <div className="question-nav-buttons">
+              <button
+                className="question-nav-btn"
+                onClick={goToPrev}
+                disabled={isFirst}
+              >
+                Prev
+              </button>
+              <span className="question-indicator">
+                {currentIndex + 1} / {questions.length}
+              </span>
+              <button
+                className="question-nav-btn"
+                onClick={goToNext}
+                disabled={isLast}
+              >
+                Next
+              </button>
+            </div>
+          )}
           <button
             className="question-submit-btn"
             onClick={handleSubmit}

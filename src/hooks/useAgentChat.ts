@@ -56,7 +56,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     return unsubscribe;
   }, [onEmotionChange]);
 
-  // Initialize session on mount
+  // Initialize session on mount - restore existing or create new
   useEffect(() => {
     if (viewSessionId) {
       // Load specific session for viewing
@@ -66,7 +66,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         setCurrentSessionId(session.id);
       }
     } else {
-      // Create new session for current chat
+      // Try to restore current session first
+      const existingSessionId = sessionStorage.getCurrentSessionId();
+      if (existingSessionId) {
+        const existingSession = sessionStorage.getSession(existingSessionId);
+        if (existingSession) {
+          setMessages(existingSession.messages);
+          setCurrentSessionId(existingSession.id);
+          return;
+        }
+      }
+      // No existing session, create new one
       const session = sessionStorage.createSession();
       setCurrentSessionId(session.id);
       setMessages([]);
