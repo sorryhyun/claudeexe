@@ -237,17 +237,12 @@ function buildDevOptions(sessionId, mcpServer) {
 }
 
 /**
- * Build multi-modal prompt with images if provided
+ * Build multi-modal content array with images
  * @param {string} textPrompt - The text message
  * @param {string[]} images - Array of base64 data URLs (e.g., "data:image/png;base64,...")
- * @returns {string | object[]} - Text prompt or multi-modal content array
+ * @returns {object[]} - Multi-modal content array for APIUserMessage
  */
-function buildPromptWithImages(textPrompt, images) {
-  if (!images || images.length === 0) {
-    return textPrompt;
-  }
-
-  // Build multi-modal content array
+function buildContentWithImages(textPrompt, images) {
   const content = [];
 
   // Add images first
@@ -280,6 +275,23 @@ function buildPromptWithImages(textPrompt, images) {
 }
 
 /**
+ * Create an async generator that yields a single user message with images
+ * This is required for the Claude Agent SDK streaming input mode
+ * @param {string} textPrompt - The text message
+ * @param {string[]} images - Array of base64 data URLs
+ * @returns {AsyncGenerator<SDKUserMessage>}
+ */
+async function* createImagePromptGenerator(textPrompt, images) {
+  yield {
+    type: "user",
+    message: {
+      role: "user",
+      content: buildContentWithImages(textPrompt, images),
+    },
+  };
+}
+
+/**
  * Handle a query using the Claude Agent SDK
  */
 async function handleQuery({ prompt, sessionId, images }) {
@@ -304,8 +316,11 @@ async function handleQuery({ prompt, sessionId, images }) {
       ? buildDevOptions(sessionId, clawdMcpServer)
       : buildMascotOptions(sessionId, clawdMcpServer);
 
-    // Build prompt (text-only or multi-modal with images)
-    const queryPrompt = buildPromptWithImages(prompt, images);
+    // Build prompt: use generator for images (streaming input mode), string for text-only
+    const hasImages = images && images.length > 0;
+    const queryPrompt = hasImages
+      ? createImagePromptGenerator(prompt, images)
+      : prompt;
 
     let fullText = "";
     let newSessionId = sessionId;

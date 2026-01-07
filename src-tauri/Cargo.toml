@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Claude Desktop Mascot"
 authors = ["you"]
 edition = "2021"
+default-run = "claude-mascot"
 
 [lib]
 name = "claude_mascot_lib"
