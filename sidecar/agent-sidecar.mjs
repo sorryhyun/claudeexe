@@ -237,13 +237,57 @@ function buildDevOptions(sessionId, mcpServer) {
 }
 
 /**
+ * Build multi-modal prompt with images if provided
+ * @param {string} textPrompt - The text message
+ * @param {string[]} images - Array of base64 data URLs (e.g., "data:image/png;base64,...")
+ * @returns {string | object[]} - Text prompt or multi-modal content array
+ */
+function buildPromptWithImages(textPrompt, images) {
+  if (!images || images.length === 0) {
+    return textPrompt;
+  }
+
+  // Build multi-modal content array
+  const content = [];
+
+  // Add images first
+  for (const dataUrl of images) {
+    // Parse data URL: "data:image/png;base64,<data>"
+    const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (match) {
+      const mediaType = match[1];
+      const data = match[2];
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: mediaType,
+          data: data,
+        },
+      });
+    }
+  }
+
+  // Add text at the end
+  if (textPrompt) {
+    content.push({
+      type: "text",
+      text: textPrompt,
+    });
+  }
+
+  return content;
+}
+
+/**
  * Handle a query using the Claude Agent SDK
  */
-async function handleQuery({ prompt, sessionId }) {
+async function handleQuery({ prompt, sessionId, images }) {
   const devMode = isDevMode();
   log(`Handling query: "${prompt.substring(0, 50)}..."`);
   log(`Session ID: ${sessionId || "new session"}`);
   log(`Mode: ${devMode ? "DEV" : "MASCOT"}`);
+  log(`Images: ${images?.length || 0}`);
 
   try {
     // Create MCP server if not exists (for SDK MCP tools)
@@ -260,11 +304,14 @@ async function handleQuery({ prompt, sessionId }) {
       ? buildDevOptions(sessionId, clawdMcpServer)
       : buildMascotOptions(sessionId, clawdMcpServer);
 
+    // Build prompt (text-only or multi-modal with images)
+    const queryPrompt = buildPromptWithImages(prompt, images);
+
     let fullText = "";
     let newSessionId = sessionId;
 
     // Stream the query
-    for await (const message of queryFn({ prompt, options })) {
+    for await (const message of queryFn({ prompt: queryPrompt, options })) {
       log(`Message type: ${message.type}${message.subtype ? ` (${message.subtype})` : ""}`);
 
       // Capture session ID from init
@@ -320,6 +367,7 @@ async function handleCommand(line) {
         await handleQuery({
           prompt: cmd.prompt,
           sessionId: cmd.sessionId || currentSessionId,
+          images: cmd.images || [],
         });
         break;
 

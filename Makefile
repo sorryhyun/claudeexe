@@ -1,4 +1,4 @@
-.PHONY: test test-ts test-rust dev build lint clean
+.PHONY: test test-ts test-rust dev build lint clean codegen-tauri
 
 # Run all tests
 test: test-ts test-rust
@@ -36,3 +36,7 @@ check-rust:
 clean:
 	rm -rf dist
 	cd src-tauri && cargo clean
+
+# Generate TypeScript bindings from Rust commands
+codegen-tauri:
+	cd src-tauri && cargo run --bin codegen

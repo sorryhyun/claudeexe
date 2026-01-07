@@ -9,9 +9,9 @@ export const commands = {
 /**
  * Send a message to Claude via the sidecar
  */
-async sendAgentMessage(message: string) : Promise<Result<null, string>> {
+async sendAgentMessage(message: string, images: string[]) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("send_agent_message", { message }) };
+    return { status: "ok", data: await TAURI_INVOKE("send_agent_message", { message, images }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -65,6 +65,18 @@ async isSupikiMode() : Promise<boolean> {
 async answerAgentQuestion(questionId: string, questionsJson: string, answers: { [key in string]: string }) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("answer_agent_question", { questionId, questionsJson, answers }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Open a base64-encoded image in the system's default image viewer
+ * The base64 string should include the data URL prefix (e.g., "data:image/png;base64,...")
+ */
+async openImageInViewer(base64Data: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_image_in_viewer", { base64Data }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

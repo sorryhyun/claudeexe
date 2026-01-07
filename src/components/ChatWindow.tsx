@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
 import SpeechBubble from "./SpeechBubble";
-import ChatInput from "./ChatInput";
+import ChatInput, { type AttachedImage } from "./ChatInput";
 import QuestionModal from "./QuestionModal";
 import { useChatHistory } from "../hooks/useChatHistory";
 import type { Emotion } from "../emotion";
@@ -178,7 +178,12 @@ function ChatWindow() {
         </div>
         {!isViewMode && (
           <div className="chat-input-row">
-            <ChatInput onSend={chat.sendMessage} disabled={chat.isTyping} />
+            <ChatInput
+                onSend={(msg: string, images?: AttachedImage[]) =>
+                  chat.sendMessage(msg, images)
+                }
+                disabled={chat.isTyping}
+              />
             {chat.isTyping && (
               <button className="interrupt-btn" onClick={chat.interrupt}>
                 Stop

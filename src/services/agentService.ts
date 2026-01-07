@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent } from "./agentTypes";
+import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent, AttachedImage } from "./agentTypes";
 import { EMOTIONS } from "../emotion";
 import { commands } from "../bindings";
 
@@ -64,9 +64,10 @@ export class AgentService {
 
   async sendMessage(
     prompt: string,
-    callbacks: AgentQueryCallbacks
+    callbacks: AgentQueryCallbacks,
+    images?: AttachedImage[]
   ): Promise<void> {
-    console.log("[AgentService] Sending message:", prompt);
+    console.log("[AgentService] Sending message:", prompt, "images:", images?.length || 0);
     callbacks.onStreamStart();
 
     // Clean up any previous query listeners
@@ -111,7 +112,9 @@ export class AgentService {
 
       console.log("[AgentService] Invoking send_agent_message...");
       // Invoke the Rust command (now async, returns immediately)
-      const result = await commands.sendAgentMessage(prompt);
+      // Convert images to base64 array for IPC
+      const imageBase64s = images?.map((img) => img.base64) || [];
+      const result = await commands.sendAgentMessage(prompt, imageBase64s);
       if (result.status === "error") {
         throw new Error(result.error);
       }

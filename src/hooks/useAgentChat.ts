@@ -8,6 +8,7 @@ import type {
   AgentQueryCallbacks,
   Emotion,
   AgentQuestionEvent,
+  AttachedImage,
 } from "../services/agentTypes";
 
 const MAX_MESSAGES = 100;
@@ -147,11 +148,16 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   );
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, images?: AttachedImage[]) => {
       setError(null);
 
+      // Build user message content - include image indicators if any
+      const displayContent = images?.length
+        ? `${content}${content ? " " : ""}[${images.length} image${images.length > 1 ? "s" : ""} attached]`
+        : content;
+
       // Add user message
-      addMessage("user", content);
+      addMessage("user", displayContent);
 
       // Create placeholder for streaming response
       const placeholderMsg = addMessage("clawd", "", { isStreaming: true });
@@ -237,7 +243,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         },
       };
 
-      await agentService.current.sendMessage(content, callbacks);
+      await agentService.current.sendMessage(content, callbacks, images);
     },
     [
       addMessage,

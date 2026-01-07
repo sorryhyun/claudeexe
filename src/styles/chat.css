@@ -370,3 +370,49 @@
 .interrupt-btn:active {
   transform: scale(0.98);
 }
+
+/* Image attachment buttons */
+.chat-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attached-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+.attached-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: rgba(189, 130, 93, 0.15);
+  border: 1px solid #BD825D;
+  border-radius: 4px;
+  color: #BD825D;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.attached-image-btn:hover {
+  background: rgba(189, 130, 93, 0.25);
+}
+
+.attached-image-remove {
+  margin-left: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.attached-image-remove:hover {
+  opacity: 1;
+  color: #e74c3c;
+}

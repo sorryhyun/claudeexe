@@ -76,5 +76,11 @@ export interface AgentQuestionEvent {
   questions: AgentQuestion[];
 }
 
+// Attached image for chat messages
+export interface AttachedImage {
+  id: string;
+  base64: string; // base64 data URL (includes data:image/... prefix)
+}
+
 // Re-export types for convenience
 export type { AnimationState, Emotion };
