@@ -4,6 +4,7 @@ import type { Emotion } from "../emotion";
 // Import sound files
 import goodSound from "../supiki/good.wav";
 import euSound from "../supiki/eu.wav";
+import ueSound from "../supiki/ue.wav";
 import dontpushSound from "../supiki/dontpush.wav";
 
 export type SupikiSoundTrigger = "click" | "emotion";
@@ -44,9 +45,11 @@ export function useSupikiSounds(): UseSupikiSoundsReturn {
     });
   }, []);
 
-  // Play sound when clicked - "eu.wav"
+  // Play sound when clicked - randomly pick between "ue.wav" and "eu.wav"
   const playClickSound = useCallback(() => {
-    playSound(euSound);
+    const sounds = [ueSound, euSound];
+    const randomSound = sounds[Math.floor(Math.random() * sounds.length)];
+    playSound(randomSound);
   }, [playSound]);
 
   // Play sound based on emotion
