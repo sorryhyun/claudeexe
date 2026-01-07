@@ -60,8 +60,9 @@ async isSupikiMode() : Promise<boolean> {
 },
 /**
  * Answer an AskUserQuestion from the agent
+ * questions_json is a JSON string of the questions array (to preserve exact structure)
  */
-async answerAgentQuestion(questionId: string, questionsJson: string, answers: Record<string, string>) : Promise<Result<null, string>> {
+async answerAgentQuestion(questionId: string, questionsJson: string, answers: { [key in string]: string }) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("answer_agent_question", { questionId, questionsJson, answers }) };
 } catch (e) {

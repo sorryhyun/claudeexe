@@ -1,15 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 import { EMOTION_RESET_DURATION, TALK_DURATION } from "../constants";
 
-export type MascotState = "idle" | "walking" | "talking" | "jumping" | "falling";
+export type AnimationState = "idle" | "walking" | "talking" | "jumping" | "falling";
 export type Direction = "left" | "right";
 
-interface MascotStateManager {
-  state: MascotState;
+interface AnimationStateManager {
+  animationState: AnimationState;
   direction: Direction;
   emotion: Emotion;
-  setState: (state: MascotState) => void;
+  setAnimationState: (state: AnimationState) => void;
   setDirection: (dir: Direction) => void;
   setEmotion: (emotion: Emotion, duration?: number) => void;
   triggerJump: () => void;
@@ -18,34 +18,34 @@ interface MascotStateManager {
   setGrounded: (grounded: boolean) => void;
 }
 
-export function useMascotState(): MascotStateManager {
-  const [state, setStateInternal] = useState<MascotState>("idle");
+export function useAnimationState(): AnimationStateManager {
+  const [animationState, setAnimationStateInternal] = useState<AnimationState>("idle");
   const [direction, setDirection] = useState<Direction>("right");
   const [emotion, setEmotionInternal] = useState<Emotion>("neutral");
   const [isGrounded, setGrounded] = useState(true);
   const stateTimeoutRef = useRef<number | null>(null);
   const emotionTimeoutRef = useRef<number | null>(null);
 
-  const setState = useCallback((newState: MascotState) => {
+  const setAnimationState = useCallback((newState: AnimationState) => {
     if (stateTimeoutRef.current) {
       clearTimeout(stateTimeoutRef.current);
       stateTimeoutRef.current = null;
     }
-    setStateInternal(newState);
+    setAnimationStateInternal(newState);
   }, []);
 
   const triggerJump = useCallback(() => {
     if (!isGrounded) return;
-    setState("jumping");
+    setAnimationState("jumping");
     setGrounded(false);
-  }, [isGrounded, setState]);
+  }, [isGrounded, setAnimationState]);
 
   const triggerTalk = useCallback(() => {
-    setState("talking");
+    setAnimationState("talking");
     stateTimeoutRef.current = window.setTimeout(() => {
-      setStateInternal("idle");
+      setAnimationStateInternal("idle");
     }, TALK_DURATION);
-  }, [setState]);
+  }, [setAnimationState]);
 
   const setEmotion = useCallback((newEmotion: Emotion, duration?: number) => {
     if (emotionTimeoutRef.current) {
@@ -75,10 +75,10 @@ export function useMascotState(): MascotStateManager {
   }, []);
 
   return {
-    state,
+    animationState,
     direction,
     emotion,
-    setState,
+    setAnimationState,
     setDirection,
     setEmotion,
     triggerJump,

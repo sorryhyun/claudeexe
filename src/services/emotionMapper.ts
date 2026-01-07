@@ -1,4 +1,4 @@
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 import type { EmotionContext } from "./agentTypes";
 
 // Keywords/patterns that suggest different emotions

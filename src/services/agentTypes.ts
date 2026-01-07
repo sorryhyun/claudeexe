@@ -1,5 +1,5 @@
-import type { MascotState } from "../hooks/useMascotState";
-import type { Emotion } from "../emotions";
+import type { AnimationState } from "../hooks/useMascotState";
+import type { Emotion } from "../emotion";
 
 // Streaming message state
 export interface StreamingState {
@@ -77,4 +77,4 @@ export interface AgentQuestionEvent {
 }
 
 // Re-export types for convenience
-export type { MascotState, Emotion };
+export type { AnimationState, Emotion };

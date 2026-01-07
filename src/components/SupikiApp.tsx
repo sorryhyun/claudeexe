@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Supiki from "./Supiki";
-import { useMascotState } from "../hooks/useMascotState";
+import { useAnimationState } from "../hooks/useMascotState";
 import { usePhysics } from "../hooks/usePhysics";
 import { useChatWindow } from "../hooks/useChatWindow";
 import { useDrag } from "../hooks/useDrag";
@@ -16,26 +16,26 @@ function SupikiApp() {
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
-  const mascot = useMascotState();
+  const supiki = useAnimationState();
   const { openContextMenu, closeContextMenu } = useContextMenu();
   const { playClickSound, playEmotionSound } = useSupikiSounds();
 
   // Play sound when emotion changes
   useEffect(() => {
-    playEmotionSound(mascot.emotion);
-  }, [mascot.emotion, playEmotionSound]);
+    playEmotionSound(supiki.emotion);
+  }, [supiki.emotion, playEmotionSound]);
 
   // Chat window management
   const chatWindow = useChatWindow(
     () => {
       // onOpen
       setChatOpen(true);
-      mascot.setState("talking");
+      supiki.setAnimationState("talking");
     },
     () => {
       // onClose
       setChatOpen(false);
-      mascot.setState("idle");
+      supiki.setAnimationState("idle");
     }
   );
 
@@ -49,22 +49,22 @@ function SupikiApp() {
 
   const handleGrounded = useCallback(
     (grounded: boolean) => {
-      mascot.setGrounded(grounded);
-      if (grounded && mascot.state === "jumping") {
-        mascot.setState("idle");
+      supiki.setGrounded(grounded);
+      if (grounded && supiki.animationState === "jumping") {
+        supiki.setAnimationState("idle");
       }
-      if (!grounded && mascot.state !== "jumping") {
-        mascot.setState("falling");
+      if (!grounded && supiki.animationState !== "jumping") {
+        supiki.setAnimationState("falling");
       }
     },
-    [mascot]
+    [supiki]
   );
 
   const handleEdgeHit = useCallback(
     (edge: "left" | "right") => {
-      mascot.setDirection(edge === "left" ? "right" : "left");
+      supiki.setDirection(edge === "left" ? "right" : "left");
     },
-    [mascot]
+    [supiki]
   );
 
   const physics = usePhysics({
@@ -78,15 +78,15 @@ function SupikiApp() {
   // Drag handling
   const { stopWalking: stopAutoWalk } = useAutoWalk({
     isEnabled: !chatOpen,
-    canWalk: () => !drag.isDragging && mascot.state === "idle" && mascot.isGrounded,
+    canWalk: () => !drag.isDragging && supiki.animationState === "idle" && supiki.isGrounded,
     onStartWalk: (direction) => {
-      mascot.setDirection(direction);
-      mascot.setState("walking");
+      supiki.setDirection(direction);
+      supiki.setAnimationState("walking");
       physics.startWalking(direction);
     },
     onStopWalk: () => {
       physics.stopWalking();
-      mascot.setState("idle");
+      supiki.setAnimationState("idle");
     },
   });
 
@@ -96,7 +96,7 @@ function SupikiApp() {
       physics.stopPhysics();
       physics.stopWalking();
       stopAutoWalk();
-      mascot.setState("idle");
+      supiki.setAnimationState("idle");
     },
     onDragEnd: async () => {
       await physics.syncPosition();
@@ -109,29 +109,29 @@ function SupikiApp() {
   // Event handlers for Clawd events
   const eventHandlers = useMemo(
     () => ({
-      onEmotionChange: (emotion: Parameters<typeof mascot.setEmotion>[0]) => {
-        mascot.setEmotion(emotion);
+      onEmotionChange: (emotion: Parameters<typeof supiki.setEmotion>[0]) => {
+        supiki.setEmotion(emotion);
       },
       onWalkToWindow: (targetX: number) => {
         const currentX = physics.getState().x;
         const direction = targetX > currentX ? "right" : "left";
-        mascot.setDirection(direction);
-        mascot.setState("walking");
+        supiki.setDirection(direction);
+        supiki.setAnimationState("walking");
         physics.walkToX(targetX, () => {
-          mascot.setState("idle");
-          mascot.setDirection(physics.getDirection());
-          mascot.setEmotion("curious", 5000);
+          supiki.setAnimationState("idle");
+          supiki.setDirection(physics.getDirection());
+          supiki.setEmotion("curious", 5000);
         });
       },
       onMove: (_target: string, targetX: number | null) => {
         if (targetX === null) return;
         const currentX = physics.getState().x;
         const direction = targetX > currentX ? "right" : "left";
-        mascot.setDirection(direction);
-        mascot.setState("walking");
+        supiki.setDirection(direction);
+        supiki.setAnimationState("walking");
         physics.walkToX(targetX, () => {
-          mascot.setState("idle");
-          mascot.setDirection(physics.getDirection());
+          supiki.setAnimationState("idle");
+          supiki.setDirection(physics.getDirection());
         });
       },
       onChatClosed: () => {
@@ -159,8 +159,8 @@ function SupikiApp() {
         const appWindow = getCurrentWindow();
         const position = await appWindow.outerPosition();
         const factor = await appWindow.scaleFactor();
-        const mascotX = position.x / factor;
-        const mascotY = position.y / factor;
+        const supikiX = position.x / factor;
+        const supikiY = position.y / factor;
 
         // Open session viewer window
         new WebviewWindow("session-viewer", {
@@ -168,8 +168,8 @@ function SupikiApp() {
           title: "Chat History",
           width: CHAT_WIDTH,
           height: CHAT_HEIGHT,
-          x: Math.round(mascotX + WINDOW_WIDTH - 5),
-          y: Math.round(mascotY - CHAT_HEIGHT + WINDOW_HEIGHT - 20),
+          x: Math.round(supikiX + WINDOW_WIDTH - 5),
+          y: Math.round(supikiY - CHAT_HEIGHT + WINDOW_HEIGHT - 20),
           resizable: false,
           decorations: false,
           transparent: true,
@@ -179,7 +179,7 @@ function SupikiApp() {
         });
       },
     }),
-    [mascot, physics, chatWindow, physicsEnabled]
+    [supiki, physics, chatWindow, physicsEnabled]
   );
 
   useClawdEvents(eventHandlers, {
@@ -247,8 +247,8 @@ function SupikiApp() {
     >
       <div className="clawd-wrapper">
         <Supiki
-          state={mascot.state}
-          direction={mascot.direction}
+          animationState={supiki.animationState}
+          direction={supiki.direction}
           onClick={handleClick}
           onMouseDown={handleSupikiMouseDown}
           onContextMenu={openContextMenu}

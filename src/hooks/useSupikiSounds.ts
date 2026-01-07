@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from "react";
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 
 // Import sound files
 import goodSound from "../supiki/good.wav";

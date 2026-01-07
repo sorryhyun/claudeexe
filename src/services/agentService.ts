@@ -1,6 +1,6 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent } from "./agentTypes";
-import { EMOTIONS } from "../emotions";
+import { EMOTIONS } from "../emotion";
 import { commands } from "../bindings";
 
 // Emotion update callback type

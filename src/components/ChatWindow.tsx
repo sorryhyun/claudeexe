@@ -5,7 +5,7 @@ import SpeechBubble from "./SpeechBubble";
 import ChatInput from "./ChatInput";
 import QuestionModal from "./QuestionModal";
 import { useChatHistory } from "../hooks/useChatHistory";
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 
 function ChatWindow() {
   const messagesEndRef = useRef<HTMLDivElement>(null);

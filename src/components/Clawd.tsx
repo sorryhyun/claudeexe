@@ -1,8 +1,8 @@
-import { MascotState, Direction } from "../hooks/useMascotState";
-import { type Emotion, EMOTION_CONFIG } from "../emotions";
+import { AnimationState, Direction } from "../hooks/useMascotState";
+import { type Emotion, FACIAL_CONFIG, emotionToFacial } from "../emotion";
 
 interface ClawdProps {
-  state: MascotState;
+  animationState: AnimationState;
   direction: Direction;
   emotion?: Emotion;
   onClick?: (e: React.MouseEvent) => void;
@@ -11,11 +11,14 @@ interface ClawdProps {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
+function Clawd({ animationState, direction, emotion: emotionProp = "neutral", onClick, onMouseDown, onDoubleClick, onContextMenu }: ClawdProps) {
   // When talking, show curious emotion unless overridden
-  const emotion = state === "talking" && emotionProp === "neutral" ? "curious" : emotionProp;
+  const emotion = animationState === "talking" && emotionProp === "neutral" ? "curious" : emotionProp;
+  // Convert emotion to facial state for visual rendering
+  const facialState = emotionToFacial(emotion);
+
   const getAnimationClass = () => {
-    switch (state) {
+    switch (animationState) {
       case "walking":
         return "clawd-walking";
       case "jumping":
@@ -29,12 +32,12 @@ function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, on
     }
   };
 
-  const emotionConfig = EMOTION_CONFIG[emotion];
-  const leftEye = emotionConfig.leftEye;
-  const rightEye = emotionConfig.rightEye;
-  const eyebrows = emotionConfig.eyebrows;
+  const facialConfig = FACIAL_CONFIG[facialState];
+  const leftEye = facialConfig.leftEye;
+  const rightEye = facialConfig.rightEye;
+  const eyebrows = facialConfig.eyebrows;
 
-  const isRotated = emotion === "curious";
+  const isRotated = facialState === "curious";
 
   return (
     <svg
@@ -43,7 +46,7 @@ function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, on
       width="110"
       height="80"
       shapeRendering={isRotated ? "auto" : "crispEdges"}
-      className={`clawd ${getAnimationClass()} clawd-emotion-${emotion}`}
+      className={`clawd ${getAnimationClass()} clawd-facial-${facialState}`}
       onClick={onClick}
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
@@ -112,7 +115,7 @@ function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, on
         />
 
         {/* Eye shine (for happy/excited) */}
-        {(emotion === "happy" || emotion === "excited") && (
+        {(facialState === "happy" || facialState === "excited") && (
           <g className="clawd-eye-shine">
             <rect x="4.3" y={leftEye.y + 0.3} width="0.6" height="0.6" fill="#ffffff" opacity="0.7" />
             <rect x="16.3" y={rightEye.y + 0.3} width="0.6" height="0.6" fill="#ffffff" opacity="0.7" />
@@ -133,8 +136,8 @@ function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, on
       </g>
 
 
-      {/* Thinking bubble for thinking emotion */}
-      {emotion === "thinking" && (
+      {/* Thinking bubble for thinking facial state */}
+      {facialState === "thinking" && (
         <g className="thinking-indicator">
           <circle cx="19" cy="1" r="0.5" fill="#888" opacity="0.6" />
           <circle cx="20.5" cy="0" r="0.7" fill="#888" opacity="0.7" />
@@ -143,23 +146,23 @@ function Clawd({ state, direction, emotion: emotionProp = "neutral", onClick, on
       )}
 
       {/* Confusion marks */}
-      {emotion === "confused" && (
+      {facialState === "confused" && (
         <g className="confused-indicator">
           <text x="19" y="2" fontSize="3" fill="#666" fontWeight="bold">?</text>
         </g>
       )}
 
       {/* Excitement sparkles */}
-      {emotion === "excited" && (
+      {facialState === "excited" && (
         <g className="excited-indicator">
           <polygon points="20,0 20.3,0.8 21.2,0.8 20.5,1.3 20.7,2.1 20,1.6 19.3,2.1 19.5,1.3 18.8,0.8 19.7,0.8" fill="#FFD700" />
         </g>
       )}
 
       {/* Curious question mark */}
-      {emotion === "curious" && (
+      {facialState === "curious" && (
         <g className="curious-indicator">
-          <text x="18" y="3" fontSize="5" fill="#999" fontWeight="bold">?</text>
+          <text x="18" y="3" fontSize="5" fill="#555" fontWeight="bold">?</text>
         </g>
       )}
     </svg>

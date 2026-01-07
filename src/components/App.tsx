@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Clawd from "./Clawd";
-import { useMascotState } from "../hooks/useMascotState";
+import { useAnimationState } from "../hooks/useMascotState";
 import { usePhysics } from "../hooks/usePhysics";
 import { useChatWindow } from "../hooks/useChatWindow";
 import { useDrag } from "../hooks/useDrag";
@@ -15,7 +15,7 @@ function App() {
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
-  const mascot = useMascotState();
+  const clawd = useAnimationState();
   const { openContextMenu, closeContextMenu } = useContextMenu();
 
   // Chat window management
@@ -23,12 +23,12 @@ function App() {
     () => {
       // onOpen
       setChatOpen(true);
-      mascot.setState("talking");
+      clawd.setAnimationState("talking");
     },
     () => {
       // onClose
       setChatOpen(false);
-      mascot.setState("idle");
+      clawd.setAnimationState("idle");
     }
   );
 
@@ -42,22 +42,22 @@ function App() {
 
   const handleGrounded = useCallback(
     (grounded: boolean) => {
-      mascot.setGrounded(grounded);
-      if (grounded && mascot.state === "jumping") {
-        mascot.setState("idle");
+      clawd.setGrounded(grounded);
+      if (grounded && clawd.animationState === "jumping") {
+        clawd.setAnimationState("idle");
       }
-      if (!grounded && mascot.state !== "jumping") {
-        mascot.setState("falling");
+      if (!grounded && clawd.animationState !== "jumping") {
+        clawd.setAnimationState("falling");
       }
     },
-    [mascot]
+    [clawd]
   );
 
   const handleEdgeHit = useCallback(
     (edge: "left" | "right") => {
-      mascot.setDirection(edge === "left" ? "right" : "left");
+      clawd.setDirection(edge === "left" ? "right" : "left");
     },
-    [mascot]
+    [clawd]
   );
 
   const physics = usePhysics({
@@ -71,15 +71,15 @@ function App() {
   // Drag handling
   const { stopWalking: stopAutoWalk } = useAutoWalk({
     isEnabled: !chatOpen,
-    canWalk: () => !drag.isDragging && mascot.state === "idle" && mascot.isGrounded,
+    canWalk: () => !drag.isDragging && clawd.animationState === "idle" && clawd.isGrounded,
     onStartWalk: (direction) => {
-      mascot.setDirection(direction);
-      mascot.setState("walking");
+      clawd.setDirection(direction);
+      clawd.setAnimationState("walking");
       physics.startWalking(direction);
     },
     onStopWalk: () => {
       physics.stopWalking();
-      mascot.setState("idle");
+      clawd.setAnimationState("idle");
     },
   });
 
@@ -89,7 +89,7 @@ function App() {
       physics.stopPhysics();
       physics.stopWalking();
       stopAutoWalk();
-      mascot.setState("idle");
+      clawd.setAnimationState("idle");
     },
     onDragEnd: async () => {
       await physics.syncPosition();
@@ -102,29 +102,29 @@ function App() {
   // Event handlers for Clawd events
   const eventHandlers = useMemo(
     () => ({
-      onEmotionChange: (emotion: Parameters<typeof mascot.setEmotion>[0]) => {
-        mascot.setEmotion(emotion);
+      onEmotionChange: (emotion: Parameters<typeof clawd.setEmotion>[0]) => {
+        clawd.setEmotion(emotion);
       },
       onWalkToWindow: (targetX: number) => {
         const currentX = physics.getState().x;
         const direction = targetX > currentX ? "right" : "left";
-        mascot.setDirection(direction);
-        mascot.setState("walking");
+        clawd.setDirection(direction);
+        clawd.setAnimationState("walking");
         physics.walkToX(targetX, () => {
-          mascot.setState("idle");
-          mascot.setDirection(physics.getDirection());
-          mascot.setEmotion("curious", 5000);
+          clawd.setAnimationState("idle");
+          clawd.setDirection(physics.getDirection());
+          clawd.setEmotion("curious", 5000);
         });
       },
       onMove: (_target: string, targetX: number | null) => {
         if (targetX === null) return;
         const currentX = physics.getState().x;
         const direction = targetX > currentX ? "right" : "left";
-        mascot.setDirection(direction);
-        mascot.setState("walking");
+        clawd.setDirection(direction);
+        clawd.setAnimationState("walking");
         physics.walkToX(targetX, () => {
-          mascot.setState("idle");
-          mascot.setDirection(physics.getDirection());
+          clawd.setAnimationState("idle");
+          clawd.setDirection(physics.getDirection());
         });
       },
       onChatClosed: () => {
@@ -172,7 +172,7 @@ function App() {
         });
       },
     }),
-    [mascot, physics, chatWindow, physicsEnabled]
+    [clawd, physics, chatWindow, physicsEnabled]
   );
 
   useClawdEvents(eventHandlers, {
@@ -239,9 +239,9 @@ function App() {
     >
       <div className="clawd-wrapper">
         <Clawd
-          state={mascot.state}
-          direction={mascot.direction}
-          emotion={mascot.emotion}
+          animationState={clawd.animationState}
+          direction={clawd.direction}
+          emotion={clawd.emotion}
           onClick={handleClick}
           onMouseDown={handleClawdMouseDown}
           onContextMenu={openContextMenu}

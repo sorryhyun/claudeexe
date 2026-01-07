@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 import { WINDOW_WIDTH } from "../constants";
 
 export interface ClawdEventHandlers {

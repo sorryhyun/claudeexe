@@ -1,8 +1,11 @@
 /**
- * Emotion types for Clawd - separate from physical states (walking, jumping, etc.)
- * These control the facial expression/appearance of the mascot.
+ * FacialState - the visual configuration for Clawd's face.
+ * This controls eye positions, eyebrows, and special indicators.
+ * FacialState is derived from Emotion (the high-level semantic concept).
  */
-export type Emotion =
+import type { Emotion } from "./emotion";
+
+export type FacialState =
   | "neutral"
   | "happy"
   | "sad"
@@ -12,7 +15,7 @@ export type Emotion =
   | "surprised"
   | "curious";
 
-export const EMOTIONS: Emotion[] = [
+export const FACIAL_STATES: FacialState[] = [
   "neutral",
   "happy",
   "sad",
@@ -20,11 +23,11 @@ export const EMOTIONS: Emotion[] = [
   "thinking",
   "confused",
   "surprised",
-  "curious"
+  "curious",
 ];
 
 /**
- * Eye configuration for each emotion
+ * Eye configuration for each facial state
  */
 export interface EyeConfig {
   leftEye: {
@@ -50,9 +53,9 @@ export interface EyeConfig {
 }
 
 /**
- * Visual configuration for each emotion
+ * Visual configuration for each facial state
  */
-export const EMOTION_CONFIG: Record<Emotion, EyeConfig> = {
+export const FACIAL_CONFIG: Record<FacialState, EyeConfig> = {
   neutral: {
     leftEye: { y: 4, height: 2 },
     rightEye: { y: 4, height: 2 },
@@ -102,3 +105,14 @@ export const EMOTION_CONFIG: Record<Emotion, EyeConfig> = {
     rightEye: { y: 4, height: 2 },
   },
 };
+
+/**
+ * Map an Emotion to its corresponding FacialState.
+ * Currently 1:1, but this allows for future divergence
+ * (e.g., "angry" emotion could map to a different facial state).
+ */
+export function emotionToFacial(emotion: Emotion): FacialState {
+  // For now, emotions map directly to facial states
+  // This can be expanded later for more complex mappings
+  return emotion as FacialState;
+}

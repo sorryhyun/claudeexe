@@ -3,12 +3,12 @@
  * Import types from here instead of individual files for cleaner imports
  */
 
-// Emotion types and config
-export type { Emotion, EyeConfig } from "../emotions";
-export { EMOTIONS, EMOTION_CONFIG } from "../emotions";
+// Emotion types (high-level semantic emotion)
+export type { Emotion, FacialState, EyeConfig } from "../emotion";
+export { EMOTIONS, FACIAL_STATES, FACIAL_CONFIG, emotionToFacial } from "../emotion";
 
-// Mascot state types
-export type { MascotState, Direction } from "../hooks/useMascotState";
+// Animation state types (physical/behavioral)
+export type { AnimationState, Direction } from "../hooks/useMascotState";
 
 // Agent/chat types
 export type {

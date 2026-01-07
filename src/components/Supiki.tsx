@@ -1,8 +1,8 @@
-import { MascotState, Direction } from "../hooks/useMascotState";
+import { AnimationState, Direction } from "../hooks/useMascotState";
 import supikiImage from "../supiki/supiki.webp";
 
 interface SupikiProps {
-  state: MascotState;
+  animationState: AnimationState;
   direction: Direction;
   onClick?: (e: React.MouseEvent) => void;
   onMouseDown?: (e: React.MouseEvent) => void;
@@ -10,9 +10,9 @@ interface SupikiProps {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function Supiki({ state, direction, onClick, onMouseDown, onDoubleClick, onContextMenu }: SupikiProps) {
+function Supiki({ animationState, direction, onClick, onMouseDown, onDoubleClick, onContextMenu }: SupikiProps) {
   const getAnimationClass = () => {
-    switch (state) {
+    switch (animationState) {
       case "walking":
         return "supiki-walking";
       case "jumping":

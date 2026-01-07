@@ -1,5 +1,5 @@
 import { useAgentChat } from "./useAgentChat";
-import type { Emotion } from "../emotions";
+import type { Emotion } from "../emotion";
 import type { AgentChatMessage, StreamingState } from "../services/agentTypes";
 
 // Re-export ChatMessage type for backward compatibility
