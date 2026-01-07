@@ -27,6 +27,16 @@ cd src-tauri && cargo build    # Build Rust backend
 cd src-tauri && cargo check    # Type-check Rust code
 ```
 
+## Testing
+
+```bash
+make test            # Run all tests (TypeScript + Rust)
+make test-ts         # Run TypeScript tests only
+make test-rust       # Run Rust tests only
+npm run test         # Run TypeScript tests via npm
+npm run test:watch   # Run TypeScript tests in watch mode
+```
+
 ## Architecture
 
 | Directory | Description |

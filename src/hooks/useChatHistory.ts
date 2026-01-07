@@ -29,5 +29,8 @@ export function useChatHistory(options: UseChatHistoryOptions = {}) {
     sendMessage: agent.sendMessage,
     interrupt: agent.interrupt,
     clearHistory: agent.clearHistory,
+    pendingQuestion: agent.pendingQuestion,
+    answerQuestion: agent.answerQuestion,
+    cancelQuestion: agent.cancelQuestion,
   };
 }

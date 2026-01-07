@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
 import SpeechBubble from "./SpeechBubble";
 import ChatInput from "./ChatInput";
+import QuestionModal from "./QuestionModal";
 import { useChatHistory } from "../hooks/useChatHistory";
 import type { Emotion } from "../emotions";
 
@@ -175,6 +176,16 @@ function ChatWindow() {
       </div>
       {/* Speech bubble tail pointing to Clawd */}
       <div className="chat-window-tail"></div>
+
+      {/* Question modal for AskUserQuestion tool */}
+      {!isViewMode && chat.pendingQuestion && (
+        <QuestionModal
+          questionId={chat.pendingQuestion.questionId}
+          questions={chat.pendingQuestion.questions}
+          onSubmit={chat.answerQuestion}
+          onCancel={chat.cancelQuestion}
+        />
+      )}
     </div>
   );
 }

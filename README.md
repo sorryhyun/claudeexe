@@ -44,6 +44,15 @@ npm run build
 
 빌드된 앱은 `src-tauri/target/release` 폴더에 생성됩니다.
 
+### 테스트
+
+```bash
+make test            # 모든 테스트 실행 (TypeScript + Rust)
+make test-ts         # TypeScript 테스트만 실행
+make test-rust       # Rust 테스트만 실행
+npm run test:watch   # TypeScript 테스트 watch 모드
+```
+
 ### 기타 명령어
 
 ```bash

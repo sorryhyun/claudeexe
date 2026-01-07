@@ -7,6 +7,7 @@ import type {
   StreamingState,
   AgentQueryCallbacks,
   Emotion,
+  AgentQuestionEvent,
 } from "../services/agentTypes";
 
 const MAX_MESSAGES = 100;
@@ -27,6 +28,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   });
   const [error, setError] = useState<Error | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<AgentQuestionEvent | null>(null);
 
   const agentService = useRef(getAgentService());
   const streamingMessageId = useRef<string | null>(null);
@@ -40,6 +42,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         onEmotionChange?.(emotion);
       }
     );
+    return unsubscribe;
+  }, [onEmotionChange]);
+
+  // Register question callback for AskUserQuestion tool
+  useEffect(() => {
+    const unsubscribe = agentService.current.onQuestion((event) => {
+      console.log("[useAgentChat] Question event received:", event);
+      setPendingQuestion(event);
+      // Show curious expression when asking a question
+      onEmotionChange?.("thinking");
+    });
     return unsubscribe;
   }, [onEmotionChange]);
 
@@ -242,6 +255,36 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     setCurrentSessionId(session.id);
   }, []);
 
+  // Answer a pending question from AskUserQuestion
+  const answerQuestion = useCallback(
+    async (answers: Record<string, string>) => {
+      if (!pendingQuestion) return;
+
+      try {
+        await agentService.current.answerQuestion(
+          pendingQuestion.questionId,
+          pendingQuestion.questions,
+          answers
+        );
+        setPendingQuestion(null);
+        // Return to neutral or thinking while processing
+        onEmotionChange?.("thinking");
+      } catch (err) {
+        console.error("[useAgentChat] Error answering question:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
+    },
+    [pendingQuestion, onEmotionChange]
+  );
+
+  // Cancel/dismiss a pending question
+  const cancelQuestion = useCallback(() => {
+    // For now, just clear the pending question
+    // The sidecar will timeout or handle it
+    setPendingQuestion(null);
+    onEmotionChange?.("neutral");
+  }, [onEmotionChange]);
+
   return {
     messages,
     streamingState,
@@ -251,6 +294,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     clearHistory,
     isTyping: streamingState.isStreaming,
     currentSessionId,
+    pendingQuestion,
+    answerQuestion,
+    cancelQuestion,
   };
 }
 

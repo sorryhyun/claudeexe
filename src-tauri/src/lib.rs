@@ -220,6 +220,10 @@ fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
                         "error" => {
                             let _ = app_handle.emit("agent-error", &json);
                         }
+                        "ask-question" => {
+                            // Forward AskUserQuestion to frontend
+                            let _ = app_handle.emit("agent-ask-question", &json);
+                        }
                         _ => {
                             // Emit raw for debugging
                             let _ = app_handle.emit("agent-raw", &line_content);
@@ -346,6 +350,29 @@ fn is_supiki_mode() -> bool {
     *SUPIKI_MODE.lock().unwrap()
 }
 
+/// Answer an AskUserQuestion from the agent
+/// questions_json is a JSON string of the questions array (to preserve exact structure)
+#[tauri::command]
+#[specta::specta]
+fn answer_agent_question(
+    question_id: String,
+    questions_json: String,
+    answers: std::collections::HashMap<String, String>,
+) -> Result<(), String> {
+    // Parse the questions JSON to embed in the command
+    let questions: serde_json::Value = serde_json::from_str(&questions_json)
+        .map_err(|e| format!("Invalid questions JSON: {}", e))?;
+
+    let cmd = serde_json::json!({
+        "type": "answer-question",
+        "questionId": question_id,
+        "questions": questions,
+        "answers": answers
+    });
+
+    send_to_sidecar(&cmd)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Check executable name for dev mode and supiki mode
@@ -384,7 +411,8 @@ pub fn run() {
             stop_sidecar,
             quit_app,
             is_dev_mode,
-            is_supiki_mode
+            is_supiki_mode,
+            answer_agent_question
         ]);
 
     // Export TypeScript bindings in debug builds
@@ -470,4 +498,109 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_get_session_file_path() {
+        let path = get_session_file_path();
+        // Should return Some path on most systems
+        if let Some(p) = path {
+            assert!(p.ends_with("session.txt"));
+            assert!(p.to_string_lossy().contains("claude-mascot"));
+        }
+    }
+
+    #[test]
+    fn test_session_id_mutex_operations() {
+        // Test that session ID mutex works correctly
+        {
+            let mut session = SESSION_ID.lock().unwrap();
+            *session = Some("test-session-123".to_string());
+        }
+        {
+            let session = SESSION_ID.lock().unwrap();
+            assert_eq!(session.clone(), Some("test-session-123".to_string()));
+        }
+        // Clean up
+        {
+            let mut session = SESSION_ID.lock().unwrap();
+            *session = None;
+        }
+    }
+
+    #[test]
+    fn test_dev_mode_mutex_operations() {
+        // Test that dev mode mutex works correctly
+        let original = *DEV_MODE.lock().unwrap();
+        {
+            let mut dev_mode = DEV_MODE.lock().unwrap();
+            *dev_mode = true;
+        }
+        {
+            let dev_mode = DEV_MODE.lock().unwrap();
+            assert!(*dev_mode);
+        }
+        // Restore original
+        {
+            let mut dev_mode = DEV_MODE.lock().unwrap();
+            *dev_mode = original;
+        }
+    }
+
+    #[test]
+    fn test_supiki_mode_mutex_operations() {
+        // Test that supiki mode mutex works correctly
+        let original = *SUPIKI_MODE.lock().unwrap();
+        {
+            let mut supiki_mode = SUPIKI_MODE.lock().unwrap();
+            *supiki_mode = true;
+        }
+        {
+            let supiki_mode = SUPIKI_MODE.lock().unwrap();
+            assert!(*supiki_mode);
+        }
+        // Restore original
+        {
+            let mut supiki_mode = SUPIKI_MODE.lock().unwrap();
+            *supiki_mode = original;
+        }
+    }
+
+    #[test]
+    fn test_sidecar_mode_enum() {
+        // Test that SidecarMode variants can be created
+        let exe_path = PathBuf::from("/test/agent-sidecar.exe");
+        let script_path = PathBuf::from("/test/agent-sidecar.mjs");
+
+        let _mode1 = SidecarMode::BundledExe(exe_path.clone());
+        let _mode2 = SidecarMode::NodeScript(script_path.clone());
+
+        // Verify paths match
+        if let SidecarMode::BundledExe(p) = SidecarMode::BundledExe(exe_path.clone()) {
+            assert_eq!(p, exe_path);
+        }
+        if let SidecarMode::NodeScript(p) = SidecarMode::NodeScript(script_path.clone()) {
+            assert_eq!(p, script_path);
+        }
+    }
+
+    #[test]
+    fn test_send_to_sidecar_without_running_sidecar() {
+        // Ensure stdin is None
+        *SIDECAR_STDIN.lock().unwrap() = None;
+
+        let cmd = serde_json::json!({
+            "type": "test",
+            "data": "hello"
+        });
+
+        let result = send_to_sidecar(&cmd);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Sidecar not running");
+    }
 }

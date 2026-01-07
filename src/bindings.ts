@@ -57,6 +57,17 @@ async isDevMode() : Promise<boolean> {
  */
 async isSupikiMode() : Promise<boolean> {
     return await TAURI_INVOKE("is_supiki_mode");
+},
+/**
+ * Answer an AskUserQuestion from the agent
+ */
+async answerAgentQuestion(questionId: string, questionsJson: string, answers: Record<string, string>) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("answer_agent_question", { questionId, questionsJson, answers }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

@@ -98,6 +98,29 @@ const DEV_PERSONALITY_PROMPT = (() => {
 // Current session ID
 let currentSessionId = null;
 
+// Pending AskUserQuestion promises (questionId -> { resolve, reject })
+const pendingQuestions = new Map();
+let questionCounter = 0;
+
+/**
+ * Handle permission requests for tools
+ * Used to intercept AskUserQuestion and forward to frontend
+ */
+async function handleCanUseTool(toolName, input) {
+  if (toolName === "AskUserQuestion") {
+    const questionId = `q-${++questionCounter}`;
+    log(`AskUserQuestion invoked, questionId: ${questionId}`);
+    emit({ type: "ask-question", questionId, questions: input.questions });
+
+    // Wait for answer from stdin (handleCommand will resolve this)
+    return new Promise((resolve, reject) => {
+      pendingQuestions.set(questionId, { resolve, reject });
+    });
+  }
+  // Allow all other tools (bypassPermissions behavior)
+  return { behavior: "allow", updatedInput: input };
+}
+
 // Claude Agent SDK functions
 let queryFn = null;
 let createSdkMcpServerFn = null;
@@ -164,6 +187,7 @@ function buildMascotOptions(sessionId, mcpServer) {
   const options = {
     systemPrompt: SYSTEM_PROMPT,
     permissionMode: "bypassPermissions",
+    canUseTool: handleCanUseTool,
   };
   if (cliPath) {
     options.pathToClaudeCodeExecutable = cliPath;
@@ -197,6 +221,7 @@ function buildDevOptions(sessionId, mcpServer) {
     cwd: process.cwd(),
     // Permission handling
     permissionMode: "bypassPermissions",
+    canUseTool: handleCanUseTool,
   };
   if (cliPath) {
     options.pathToClaudeCodeExecutable = cliPath;
@@ -301,6 +326,23 @@ async function handleCommand(line) {
       case "clear_session":
         currentSessionId = null;
         emit({ type: "session_cleared" });
+        break;
+
+      case "answer-question":
+        const pending = pendingQuestions.get(cmd.questionId);
+        if (pending) {
+          log(`Received answer for questionId: ${cmd.questionId}`);
+          pendingQuestions.delete(cmd.questionId);
+          pending.resolve({
+            behavior: "allow",
+            updatedInput: {
+              questions: cmd.questions,
+              answers: cmd.answers,
+            },
+          });
+        } else {
+          log(`Warning: No pending question for questionId: ${cmd.questionId}`);
+        }
         break;
 
       case "ping":

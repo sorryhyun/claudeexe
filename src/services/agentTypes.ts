@@ -58,5 +58,23 @@ export interface ChatSession {
   messageCount: number;
 }
 
+// AskUserQuestion types
+export interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+export interface AgentQuestion {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+export interface AgentQuestionEvent {
+  questionId: string;
+  questions: AgentQuestion[];
+}
+
 // Re-export types for convenience
 export type { MascotState, Emotion };

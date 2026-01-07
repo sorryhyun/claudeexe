@@ -1,19 +1,25 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AgentQueryCallbacks, Emotion } from "./agentTypes";
+import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent } from "./agentTypes";
 import { EMOTIONS } from "../emotions";
 import { commands } from "../bindings";
 
 // Emotion update callback type
 type EmotionCallback = (emotion: Emotion, duration: number) => void;
 
+// Question callback type
+type QuestionCallback = (event: AgentQuestionEvent) => void;
+
 export class AgentService {
   private listeners: UnlistenFn[] = [];
   private emotionCallbacks: EmotionCallback[] = [];
   private emotionListener: UnlistenFn | null = null;
+  private questionCallbacks: QuestionCallback[] = [];
+  private questionListener: UnlistenFn | null = null;
 
   constructor() {
-    // Set up emotion event listener once
+    // Set up persistent event listeners
     this.setupEmotionListener();
+    this.setupQuestionListener();
   }
 
   /**
@@ -37,6 +43,23 @@ export class AgentService {
         }
       }
     });
+  }
+
+  /**
+   * Set up persistent listener for AskUserQuestion events from sidecar
+   */
+  private async setupQuestionListener(): Promise<void> {
+    if (this.questionListener) return;
+
+    this.questionListener = await listen<AgentQuestionEvent>(
+      "agent-ask-question",
+      (event) => {
+        console.log("[AgentService] Question event:", event.payload);
+        for (const callback of this.questionCallbacks) {
+          callback(event.payload);
+        }
+      }
+    );
   }
 
   async sendMessage(
@@ -136,6 +159,37 @@ export class AgentService {
         (cb) => cb !== callback
       );
     };
+  }
+
+  /**
+   * Register a callback for AskUserQuestion events
+   */
+  onQuestion(callback: QuestionCallback): () => void {
+    this.questionCallbacks.push(callback);
+    return () => {
+      this.questionCallbacks = this.questionCallbacks.filter(
+        (cb) => cb !== callback
+      );
+    };
+  }
+
+  /**
+   * Answer an AskUserQuestion
+   */
+  async answerQuestion(
+    questionId: string,
+    questions: AgentQuestionEvent["questions"],
+    answers: Record<string, string>
+  ): Promise<void> {
+    console.log("[AgentService] Answering question:", questionId, answers);
+    const result = await commands.answerAgentQuestion(
+      questionId,
+      JSON.stringify(questions),
+      answers
+    );
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
   }
 
   /**
