@@ -1,21 +1,22 @@
 /* Supiki mascot styles */
 
+.supiki-wrapper {
+  /* Fixed hit area - does not transform */
+}
+
 .supiki {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease;
+  /* No transition - animation handled by React with requestAnimationFrame for smooth sponge effect */
 }
 
 /* Hover effect */
-.supiki:hover {
+.supiki-wrapper:hover .supiki {
   filter: brightness(1.1);
 }
 
-/* Click feedback */
-.supiki:active {
-  transform: scale(0.95) !important;
-}
+/* Click feedback handled by React state for squish effect */
 
 /* Idle state - no animation */
 .supiki-idle {

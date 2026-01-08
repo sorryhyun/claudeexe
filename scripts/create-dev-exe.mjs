@@ -119,11 +119,13 @@ function createResourcesZip(targetDir) {
       unlinkSync(zipPath);
     }
 
-    // Use PowerShell to create zip - use -LiteralPath for proper path handling
-    execSync(
-      `powershell -NoProfile -Command "Compress-Archive -LiteralPath '${resourcesDir}' -DestinationPath '${zipPath}'"`,
-      { stdio: "inherit" }
-    );
+    // Use .NET ZipFile class directly (more reliable than Compress-Archive module)
+    const psCommand = `
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      [System.IO.Compression.ZipFile]::CreateFromDirectory('${resourcesDir}', '${zipPath}')
+    `.replace(/\n/g, "; ");
+
+    execSync(`powershell -NoProfile -Command "${psCommand}"`, { stdio: "inherit" });
     console.log(`  Created: ${zipPath}`);
     console.log(`\n  To distribute: copy the .exe and resources.zip together.`);
     console.log(`  Users should extract resources.zip next to the .exe`);
