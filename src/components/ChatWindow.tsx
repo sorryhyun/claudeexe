@@ -42,6 +42,12 @@ function ChatWindow() {
 
   // Hide chat window when it loses focus (clicking outside)
   // Use a delay to avoid hiding during drag operations
+  // Use a ref to track showCwdModal so we can access it in the event listener
+  const showCwdModalRef = useRef(showCwdModal);
+  useEffect(() => {
+    showCwdModalRef.current = showCwdModal;
+  }, [showCwdModal]);
+
   useEffect(() => {
     const appWindow = getCurrentWindow();
     let hideTimeout: number | null = null;
@@ -54,6 +60,10 @@ function ChatWindow() {
           hideTimeout = null;
         }
       } else {
+        // Don't hide if CwdModal is open (user might be using folder picker)
+        if (showCwdModalRef.current) {
+          return;
+        }
         // Delay hide to allow for drag operations
         hideTimeout = window.setTimeout(async () => {
           emit("chat-closed");

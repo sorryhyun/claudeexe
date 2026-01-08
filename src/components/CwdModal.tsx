@@ -28,18 +28,6 @@ function CwdModal({ onClose, onCwdChange }: CwdModalProps) {
     loadData();
   }, []);
 
-  // Open native folder picker
-  const handleBrowse = async () => {
-    try {
-      const folder = await commands.pickFolder();
-      if (folder) {
-        setInputPath(folder);
-      }
-    } catch (err) {
-      console.error("[CwdModal] Failed to pick folder:", err);
-    }
-  };
-
   // Handle path change
   const handleSetCwd = async (path: string) => {
     try {
@@ -53,6 +41,20 @@ function CwdModal({ onClose, onCwdChange }: CwdModalProps) {
       }
     } catch (err) {
       setError(`Failed to set directory: ${err}`);
+    }
+  };
+
+  // Open native folder picker and apply immediately
+  const handleBrowse = async () => {
+    try {
+      const folder = await commands.pickFolder();
+      if (folder) {
+        setInputPath(folder);
+        // Automatically apply the selected folder
+        await handleSetCwd(folder);
+      }
+    } catch (err) {
+      console.error("[CwdModal] Failed to pick folder:", err);
     }
   };
 
