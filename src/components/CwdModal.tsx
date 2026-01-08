@@ -110,20 +110,22 @@ function CwdModal({ onClose, onCwdChange }: CwdModalProps) {
               onChange={(e) => setInputPath(e.target.value)}
               autoFocus
             />
-            <button
-              type="button"
-              className="cwd-browse-btn"
-              onClick={handleBrowse}
-            >
-              Browse
-            </button>
-            <button
-              type="submit"
-              className="cwd-submit-btn"
-              disabled={!inputPath.trim()}
-            >
-              Set
-            </button>
+            <div className="cwd-btn-stack">
+              <button
+                type="button"
+                className="cwd-browse-btn"
+                onClick={handleBrowse}
+              >
+                Browse
+              </button>
+              <button
+                type="submit"
+                className="cwd-submit-btn"
+                disabled={!inputPath.trim()}
+              >
+                Set
+              </button>
+            </div>
           </form>
 
           {error && <div className="cwd-error">{error}</div>}

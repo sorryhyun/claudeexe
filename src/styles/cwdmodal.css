@@ -93,7 +93,7 @@
 
 .cwd-input {
   flex: 1;
-  padding: 8px 10px;
+  padding: 5px 8px;
   border: 2px solid #e0e0e0;
   border-radius: 6px;
   font-size: 11px;
@@ -140,6 +140,17 @@
 
 .cwd-browse-btn:hover {
   background: #d0d0d0;
+}
+
+.cwd-btn-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cwd-btn-stack .cwd-browse-btn,
+.cwd-btn-stack .cwd-submit-btn {
+  padding: 6px 12px;
 }
 
 /* Error message */
