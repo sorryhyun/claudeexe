@@ -2,14 +2,12 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin};
+use std::process::ChildStdin;
 use std::sync::Mutex;
 
-/// Persistent sidecar process
-pub static SIDECAR_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
-
-/// Sidecar stdin for sending commands
-pub static SIDECAR_STDIN: Mutex<Option<ChildStdin>> = Mutex::new(None);
+/// Current query's stdin (for sending answer-question commands mid-query)
+/// This is set when a query starts and cleared when it completes.
+pub static CURRENT_QUERY_STDIN: Mutex<Option<ChildStdin>> = Mutex::new(None);
 
 /// Current session ID (maintained by sidecar, cached here)
 pub static SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
@@ -104,5 +102,12 @@ mod tests {
             let mut supiki_mode = SUPIKI_MODE.lock().unwrap();
             *supiki_mode = original;
         }
+    }
+
+    #[test]
+    fn test_current_query_stdin_mutex() {
+        // Test that CURRENT_QUERY_STDIN mutex starts as None
+        let stdin = CURRENT_QUERY_STDIN.lock().unwrap();
+        assert!(stdin.is_none());
     }
 }

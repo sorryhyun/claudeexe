@@ -152,6 +152,9 @@ let currentSessionId = null;
 const pendingQuestions = new Map();
 let questionCounter = 0;
 
+// Flag to track when query is complete (for single-shot mode)
+let queryComplete = false;
+
 /**
  * Handle permission requests for tools
  * Used to intercept AskUserQuestion and forward to frontend
@@ -406,6 +409,7 @@ async function handleQuery({ prompt, sessionId, images }) {
           success: message.subtype === "success",
           text: fullText,
         });
+        queryComplete = true;
       }
     }
 
@@ -418,6 +422,7 @@ async function handleQuery({ prompt, sessionId, images }) {
       error: error.message,
       sessionId: currentSessionId,
     });
+    queryComplete = true;
   }
 }
 
@@ -474,23 +479,22 @@ async function handleCommand(line) {
   }
 }
 
-// Initialize and start
+/**
+ * Check if we should exit (query complete and no pending questions)
+ */
+function checkExit() {
+  if (queryComplete && pendingQuestions.size === 0) {
+    log("Query complete, exiting...");
+    process.exit(0);
+  }
+}
+
+// Initialize and start (single-shot mode)
 async function main() {
-  log("Clawd Agent Sidecar starting...");
+  log("Clawd Agent Sidecar starting (single-shot mode)...");
 
   // Initialize Claude implementation
   await initializeClaude();
-
-  // Set up stdin listener
-  const rl = createInterface({
-    input: process.stdin,
-    terminal: false,
-  });
-
-  rl.on("line", handleCommand);
-
-  // Keep process alive
-  process.stdin.resume();
 
   // Signal ready
   const devMode = isDevMode();
@@ -498,6 +502,28 @@ async function main() {
   const modeString = devMode ? "DEV" : supikiMode ? "SUPIKI" : "MASCOT";
   log(`Clawd Agent Sidecar ready (${modeString} mode)`);
   emit({ type: "ready", mode: modeString.toLowerCase() });
+
+  // Set up stdin listener for commands
+  // In single-shot mode, we expect:
+  // 1. A "query" command to start
+  // 2. Possibly "answer-question" commands if AskUserQuestion is triggered
+  // 3. Process exits after query completes
+  const rl = createInterface({
+    input: process.stdin,
+    terminal: false,
+  });
+
+  rl.on("line", async (line) => {
+    await handleCommand(line);
+    // Check if we should exit after handling command
+    checkExit();
+  });
+
+  // Handle stdin close (Rust closed the pipe)
+  rl.on("close", () => {
+    log("stdin closed, exiting...");
+    process.exit(0);
+  });
 }
 
 main().catch((err) => {

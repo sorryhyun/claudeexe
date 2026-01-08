@@ -67,14 +67,14 @@ function copyInBundle() {
 // Copy sidecar files to target directory for standalone exe usage
 function copySidecarFiles(targetDir) {
   const sidecarFiles = [
-    "agent-sidecar.exe",
-    "agent-sidecar-dev.exe",
+    "agent-sidecar.cjs",
     "prompt.txt",
     "dev-prompt.txt",
     "supiki_prompt.txt",
   ];
 
   console.log("\nCopying sidecar files for standalone exe usage...");
+  console.log("Note: Node.js v18+ is required on the target machine.");
 
   for (const file of sidecarFiles) {
     const srcPath = join(sidecarDistDir, file);

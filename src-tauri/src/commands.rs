@@ -7,10 +7,10 @@ use std::process::Command;
 
 use tauri::Manager;
 
-use crate::sidecar::{ensure_sidecar_running, send_to_sidecar};
-use crate::state::{DEV_MODE, SESSION_ID, SIDECAR_PROCESS, SIDECAR_STDIN, SUPIKI_MODE};
+use crate::sidecar::{run_query, send_to_current_query};
+use crate::state::{CURRENT_QUERY_STDIN, DEV_MODE, SESSION_ID, SUPIKI_MODE};
 
-/// Send a message to Claude via the sidecar
+/// Send a message to Claude via a fresh sidecar process
 #[tauri::command]
 #[specta::specta]
 pub async fn send_agent_message(
@@ -24,13 +24,10 @@ pub async fn send_agent_message(
         images.len()
     );
 
-    // Ensure sidecar is running
-    ensure_sidecar_running(app)?;
-
     // Get current session ID
     let session_id = SESSION_ID.lock().unwrap().clone();
 
-    // Send query command to sidecar (include images if any)
+    // Build query command
     let cmd = serde_json::json!({
         "type": "query",
         "prompt": message,
@@ -38,7 +35,8 @@ pub async fn send_agent_message(
         "images": images
     });
 
-    send_to_sidecar(&cmd)?;
+    // Run query in a fresh Node.js process
+    run_query(app, cmd)?;
 
     Ok(())
 }
@@ -48,13 +46,8 @@ pub async fn send_agent_message(
 #[specta::specta]
 pub fn clear_agent_session() -> Result<(), String> {
     *SESSION_ID.lock().unwrap() = None;
-
-    // Tell sidecar to clear session too
-    let cmd = serde_json::json!({
-        "type": "clear_session"
-    });
-
-    send_to_sidecar(&cmd)
+    println!("[Rust] Session cleared");
+    Ok(())
 }
 
 /// Get current session ID
@@ -64,17 +57,13 @@ pub fn get_session_id() -> Option<String> {
     SESSION_ID.lock().unwrap().clone()
 }
 
-/// Stop the sidecar process
+/// Cancel the current query (drops stdin, causing process to exit)
 #[tauri::command]
 #[specta::specta]
 pub fn stop_sidecar() {
-    let mut process_guard = SIDECAR_PROCESS.lock().unwrap();
-    if let Some(mut child) = process_guard.take() {
-        let _ = child.kill();
-        let _ = child.wait();
-        println!("[Rust] Sidecar stopped");
-    }
-    *SIDECAR_STDIN.lock().unwrap() = None;
+    // Drop the stdin handle to signal the process to exit
+    *CURRENT_QUERY_STDIN.lock().unwrap() = None;
+    println!("[Rust] Current query cancelled");
 }
 
 /// Quit the application
@@ -125,7 +114,7 @@ pub fn answer_agent_question(
         "answers": answers
     });
 
-    send_to_sidecar(&cmd)
+    send_to_current_query(&cmd)
 }
 
 /// Open a base64-encoded image in the system's default image viewer

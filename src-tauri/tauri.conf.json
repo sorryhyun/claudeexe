@@ -41,8 +41,9 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../sidecar-dist/agent-sidecar.exe",
+      "../sidecar-dist/agent-sidecar.cjs",
       "../sidecar-dist/prompt.txt",
+      "../sidecar-dist/dev-prompt.txt",
       "../sidecar-dist/supiki_prompt.txt"
     ]
   }

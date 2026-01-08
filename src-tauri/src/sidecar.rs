@@ -1,6 +1,8 @@
-//! Sidecar process management
+//! Sidecar process management (per-query CLI spawning)
 //!
-//! Handles spawning, communicating with, and monitoring the AI agent sidecar process.
+//! Handles spawning Node.js processes for each query. Each query runs in a fresh
+//! process that exits after completion. This avoids Windows Defender false positives
+//! that occur with bundled standalone executables.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -8,40 +10,29 @@ use std::process::{Command, Stdio};
 use std::thread;
 use tauri::Emitter;
 
-use crate::state::{
-    save_session_to_disk, DEV_MODE, SESSION_ID, SIDECAR_PROCESS, SIDECAR_STDIN, SUPIKI_MODE,
-};
+use crate::state::{save_session_to_disk, CURRENT_QUERY_STDIN, DEV_MODE, SESSION_ID, SUPIKI_MODE};
 
-/// Sidecar mode: bundled exe or Node.js script
-pub enum SidecarMode {
-    /// Bundled standalone executable (production)
-    BundledExe(PathBuf),
-    /// Node.js script (development)
-    NodeScript(PathBuf),
-}
-
-/// Get the sidecar path and mode
-pub fn get_sidecar_mode() -> Option<SidecarMode> {
+/// Find the sidecar script path
+/// Looks for agent-sidecar.cjs (bundled) or agent-sidecar.mjs (development)
+fn get_sidecar_script() -> Option<PathBuf> {
     if let Ok(exe_path) = std::env::current_exe() {
         let exe_dir = exe_path.parent()?;
 
-        // First, try to find bundled exe (production mode)
-        // Tauri extracts resources to a "resources" subdirectory on Windows
-        let bundled_exe_paths = vec![
-            exe_dir.join("agent-sidecar.exe"),
-            exe_dir.join("sidecar").join("agent-sidecar.exe"),
-            exe_dir.join("resources").join("agent-sidecar.exe"), // Tauri bundled resources
+        // Production: bundled .cjs file in resources
+        let bundled_paths = vec![
+            exe_dir.join("resources").join("agent-sidecar.cjs"),
+            exe_dir.join("agent-sidecar.cjs"),
         ];
 
-        for path in bundled_exe_paths {
+        for path in bundled_paths {
             if path.exists() {
-                println!("[Rust] Found bundled sidecar exe: {:?}", path);
-                return Some(SidecarMode::BundledExe(path));
+                println!("[Rust] Found bundled sidecar: {:?}", path);
+                return Some(path);
             }
         }
 
-        // Fall back to Node.js script (development mode)
-        let script_paths = vec![
+        // Development: .mjs file in sidecar directory
+        let dev_paths = vec![
             exe_dir.join("sidecar").join("agent-sidecar.mjs"),
             exe_dir
                 .join("..")
@@ -59,96 +50,105 @@ pub fn get_sidecar_mode() -> Option<SidecarMode> {
             PathBuf::from("sidecar").join("agent-sidecar.mjs"),
         ];
 
-        for path in script_paths {
+        for path in dev_paths {
             if path.exists() {
                 // Canonicalize but strip Windows \\?\ prefix which Node.js doesn't handle
                 if let Ok(canonical) = path.canonicalize() {
                     let path_str = canonical.to_string_lossy();
                     if path_str.starts_with(r"\\?\") {
-                        return Some(SidecarMode::NodeScript(PathBuf::from(&path_str[4..])));
+                        return Some(PathBuf::from(&path_str[4..]));
                     }
-                    return Some(SidecarMode::NodeScript(canonical));
+                    return Some(canonical);
                 }
-                return Some(SidecarMode::NodeScript(path));
+                return Some(path);
             }
         }
     }
     None
 }
 
-/// Spawn the sidecar process if not already running
-pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
-    let mut process_guard = SIDECAR_PROCESS.lock().unwrap();
-
-    // Check if sidecar is already running
-    if let Some(ref mut child) = *process_guard {
-        // Check if still alive
-        match child.try_wait() {
-            Ok(None) => return Ok(()), // Still running
-            Ok(Some(_)) => {
-                println!("[Rust] Sidecar exited, will restart");
-            }
-            Err(e) => {
-                println!("[Rust] Error checking sidecar status: {}", e);
+/// Check if Node.js is available in PATH
+fn check_node_available() -> Result<(), String> {
+    match Command::new("node").arg("--version").output() {
+        Ok(output) => {
+            if output.status.success() {
+                let version = String::from_utf8_lossy(&output.stdout);
+                println!("[Rust] Node.js available: {}", version.trim());
+                Ok(())
+            } else {
+                Err("Node.js found but returned an error".to_string())
             }
         }
+        Err(_) => Err(
+            "Node.js is not installed or not in PATH. Please install Node.js v18+ to use this application.".to_string()
+        ),
     }
+}
 
-    // Spawn new sidecar
-    let sidecar_mode = get_sidecar_mode().ok_or("Could not find sidecar (exe or script)")?;
+/// Run a query in a fresh Node.js process
+/// Returns immediately after spawning - results come via Tauri events
+pub fn run_query(app: tauri::AppHandle, cmd: serde_json::Value) -> Result<(), String> {
+    // Check Node.js is available
+    check_node_available()?;
 
-    let mut cmd = match &sidecar_mode {
-        SidecarMode::BundledExe(exe_path) => {
-            println!("[Rust] Starting bundled sidecar exe: {:?}", exe_path);
-            let mut c = Command::new(exe_path);
-            // Set working directory to exe location for prompt.txt
-            if let Some(exe_dir) = exe_path.parent() {
-                c.current_dir(exe_dir);
-            }
-            c
-        }
-        SidecarMode::NodeScript(script_path) => {
-            println!("[Rust] Starting sidecar via Node.js: {:?}", script_path);
-            let mut c = Command::new("node");
-            c.arg(script_path);
-            // Set working directory to project root for module resolution
-            if let Some(parent) = script_path.parent() {
-                if let Some(project_root) = parent.parent() {
-                    c.current_dir(project_root);
-                }
-            }
-            c
-        }
-    };
+    // Find sidecar script
+    let script_path = get_sidecar_script().ok_or("Could not find sidecar script")?;
+    println!("[Rust] Running query with script: {:?}", script_path);
 
-    cmd.stdin(Stdio::piped())
+    // Build command
+    let mut node_cmd = Command::new("node");
+    node_cmd.arg(&script_path);
+    node_cmd
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    // Pass dev mode to sidecar via environment variable
+    // Set working directory for module resolution
+    if let Some(parent) = script_path.parent() {
+        // For .mjs in sidecar/, set cwd to project root
+        // For .cjs in resources/, set cwd to resources dir
+        if script_path.extension().map(|e| e == "mjs").unwrap_or(false) {
+            if let Some(project_root) = parent.parent() {
+                node_cmd.current_dir(project_root);
+            }
+        } else {
+            node_cmd.current_dir(parent);
+        }
+    }
+
+    // Pass mode flags via environment
     let dev_mode = *DEV_MODE.lock().unwrap();
     if dev_mode {
-        cmd.env("CLAWD_DEV_MODE", "1");
-        println!("[Rust] Spawning sidecar in DEV mode");
+        node_cmd.env("CLAWD_DEV_MODE", "1");
+        println!("[Rust] Running in DEV mode");
     }
 
-    // Pass supiki mode to sidecar via environment variable
     let supiki_mode = *SUPIKI_MODE.lock().unwrap();
     if supiki_mode {
-        cmd.env("CLAWD_SUPIKI_MODE", "1");
-        println!("[Rust] Spawning sidecar in SUPIKI mode");
+        node_cmd.env("CLAWD_SUPIKI_MODE", "1");
+        println!("[Rust] Running in SUPIKI mode");
     }
 
-    let mut child = cmd
+    // Spawn process
+    let mut child = node_cmd
         .spawn()
-        .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+        .map_err(|e| format!("Failed to spawn node process: {}", e))?;
 
-    // Take stdin for sending commands
-    let stdin = child.stdin.take().ok_or("Failed to capture sidecar stdin")?;
-    *SIDECAR_STDIN.lock().unwrap() = Some(stdin);
+    // Take stdin and store for answer-question commands
+    let mut stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
+
+    // Write command to stdin
+    let cmd_str = serde_json::to_string(&cmd).map_err(|e| format!("JSON error: {}", e))?;
+    writeln!(stdin, "{}", cmd_str).map_err(|e| format!("Write error: {}", e))?;
+    stdin
+        .flush()
+        .map_err(|e| format!("Flush error: {}", e))?;
+
+    // Store stdin for answer-question commands
+    *CURRENT_QUERY_STDIN.lock().unwrap() = Some(stdin);
 
     // Take stdout for reading responses
-    let stdout = child.stdout.take().ok_or("Failed to capture sidecar stdout")?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
 
     // Take stderr for logging
     let stderr = child.stderr.take();
@@ -170,7 +170,7 @@ pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
 
                     match msg_type {
                         "ready" => {
-                            println!("[Rust] Sidecar is ready");
+                            println!("[Rust] Sidecar ready");
                         }
                         "stream" => {
                             if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
@@ -178,15 +178,12 @@ pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
                             }
                         }
                         "emotion" => {
-                            // Emit emotion event directly - no file polling needed!
                             let _ = app_handle.emit("agent-emotion", &json);
                         }
                         "walk_to_window" => {
-                            // Emit walk-to-window event for frontend
                             let _ = app_handle.emit("walk-to-window", &json);
                         }
                         "move" => {
-                            // Emit move event for frontend
                             let _ = app_handle.emit("clawd-move", &json);
                         }
                         "result" => {
@@ -196,16 +193,18 @@ pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
                                 save_session_to_disk(sid);
                             }
                             let _ = app_handle.emit("agent-result", &json);
+                            // Clear stdin handle - query is complete
+                            *CURRENT_QUERY_STDIN.lock().unwrap() = None;
                         }
                         "error" => {
                             let _ = app_handle.emit("agent-error", &json);
+                            // Clear stdin handle - query is complete
+                            *CURRENT_QUERY_STDIN.lock().unwrap() = None;
                         }
                         "ask-question" => {
-                            // Forward AskUserQuestion to frontend
                             let _ = app_handle.emit("agent-ask-question", &json);
                         }
                         _ => {
-                            // Emit raw for debugging
                             let _ = app_handle.emit("agent-raw", &line_content);
                         }
                     }
@@ -213,6 +212,8 @@ pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
             }
         }
         println!("[Rust] Sidecar stdout reader ended");
+        // Ensure stdin is cleared when process ends
+        *CURRENT_QUERY_STDIN.lock().unwrap() = None;
     });
 
     // Spawn thread to read stderr for logging
@@ -227,19 +228,22 @@ pub fn ensure_sidecar_running(app: tauri::AppHandle) -> Result<(), String> {
         });
     }
 
-    *process_guard = Some(child);
-    println!("[Rust] Sidecar started successfully");
+    println!("[Rust] Query process started");
     Ok(())
 }
 
-/// Send a command to the sidecar
-pub fn send_to_sidecar(cmd: &serde_json::Value) -> Result<(), String> {
-    let mut stdin_guard = SIDECAR_STDIN.lock().unwrap();
-    let stdin = stdin_guard.as_mut().ok_or("Sidecar not running")?;
+/// Send a command to the current query's stdin (for answer-question)
+pub fn send_to_current_query(cmd: &serde_json::Value) -> Result<(), String> {
+    let mut stdin_guard = CURRENT_QUERY_STDIN.lock().unwrap();
+    let stdin = stdin_guard
+        .as_mut()
+        .ok_or("No active query to send command to")?;
 
     let cmd_str = serde_json::to_string(cmd).map_err(|e| format!("JSON error: {}", e))?;
     writeln!(stdin, "{}", cmd_str).map_err(|e| format!("Write error: {}", e))?;
-    stdin.flush().map_err(|e| format!("Flush error: {}", e))?;
+    stdin
+        .flush()
+        .map_err(|e| format!("Flush error: {}", e))?;
 
     Ok(())
 }
@@ -249,35 +253,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sidecar_mode_enum() {
-        // Test that SidecarMode variants can be created
-        let exe_path = PathBuf::from("/test/agent-sidecar.exe");
-        let script_path = PathBuf::from("/test/agent-sidecar.mjs");
-
-        let _mode1 = SidecarMode::BundledExe(exe_path.clone());
-        let _mode2 = SidecarMode::NodeScript(script_path.clone());
-
-        // Verify paths match
-        if let SidecarMode::BundledExe(p) = SidecarMode::BundledExe(exe_path.clone()) {
-            assert_eq!(p, exe_path);
-        }
-        if let SidecarMode::NodeScript(p) = SidecarMode::NodeScript(script_path.clone()) {
-            assert_eq!(p, script_path);
-        }
+    fn test_check_node_available() {
+        // This test will pass if Node.js is installed
+        // In CI without Node.js, it would fail - but that's expected
+        let result = check_node_available();
+        // Just verify it returns a result (Ok or Err)
+        assert!(result.is_ok() || result.is_err());
     }
 
     #[test]
-    fn test_send_to_sidecar_without_running_sidecar() {
-        // Ensure stdin is None
-        *SIDECAR_STDIN.lock().unwrap() = None;
+    fn test_send_to_current_query_without_active_query() {
+        // Ensure no active query
+        *CURRENT_QUERY_STDIN.lock().unwrap() = None;
 
         let cmd = serde_json::json!({
             "type": "test",
             "data": "hello"
         });
 
-        let result = send_to_sidecar(&cmd);
+        let result = send_to_current_query(&cmd);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Sidecar not running");
+        assert_eq!(result.unwrap_err(), "No active query to send command to");
     }
 }

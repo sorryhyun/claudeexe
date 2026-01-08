@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 /**
- * Bundle the sidecar into a standalone executable
+ * Bundle the sidecar into a single JavaScript file
  *
- * 1. Uses esbuild to bundle all JS into a single file
- * 2. Uses pkg to compile into standalone exe with Node.js runtime
+ * Uses esbuild to bundle all JS into a single CommonJS file that can be
+ * run with Node.js. No longer compiles to standalone exe to avoid
+ * Windows Defender false positives.
  */
 
 import { build } from "esbuild";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { copyFileSync, mkdirSync, existsSync, writeFileSync } from "fs";
+import { copyFileSync, mkdirSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-const execAsync = promisify(exec);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
 
@@ -25,16 +23,15 @@ async function bundle() {
     mkdirSync(outDir, { recursive: true });
   }
 
-  // Step 1: Bundle with esbuild
-  console.log("Step 1: Bundling with esbuild...");
+  // Bundle with esbuild to a single CommonJS file
+  console.log("Bundling with esbuild...");
   await build({
     entryPoints: [join(rootDir, "sidecar/agent-sidecar.mjs")],
     bundle: true,
     platform: "node",
     target: "node20",
-    format: "cjs", // pkg works better with CommonJS
+    format: "cjs",
     outfile: join(outDir, "agent-sidecar.cjs"),
-    // Don't bundle native modules
     external: [],
     minify: false, // Keep readable for debugging
     sourcemap: false,
@@ -62,55 +59,12 @@ async function bundle() {
     console.log("  Copied: supiki_prompt.txt");
   }
 
-  // Step 2: Compile with pkg
-  console.log("\nStep 2: Compiling with pkg...");
-
-  // Build assets list (prompt files)
-  const assets = [join(outDir, "prompt.txt")];
-  if (existsSync(join(outDir, "dev-prompt.txt"))) {
-    assets.push(join(outDir, "dev-prompt.txt"));
-  }
-  if (existsSync(join(outDir, "supiki_prompt.txt"))) {
-    assets.push(join(outDir, "supiki_prompt.txt"));
-  }
-  const assetsArg = assets.map(a => `"${a}"`).join(",");
-
-  const pkgCmd = `npx @yao-pkg/pkg "${join(outDir, "agent-sidecar.cjs")}" --target node20-win-x64 --output "${join(outDir, "agent-sidecar.exe")}" --assets ${assetsArg}`;
-
-  try {
-    const { stdout, stderr } = await execAsync(pkgCmd, { cwd: rootDir });
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
-  } catch (error) {
-    console.error("pkg compilation failed:", error.message);
-    throw error;
-  }
-
-  // Step 3: Build dev executable (with CLAWD_DEV_MODE=1 baked in)
-  console.log("\nStep 3: Building dev executable...");
-
-  // Create dev entry point that sets dev mode
-  const devEntry = `process.env.CLAWD_DEV_MODE = '1';\nrequire('./agent-sidecar.cjs');`;
-  writeFileSync(join(outDir, "agent-sidecar-dev.cjs"), devEntry);
-  console.log("  Created: agent-sidecar-dev.cjs");
-
-  const devPkgCmd = `npx @yao-pkg/pkg "${join(outDir, "agent-sidecar-dev.cjs")}" --target node20-win-x64 --output "${join(outDir, "agent-sidecar-dev.exe")}" --assets ${assetsArg}`;
-
-  try {
-    const { stdout, stderr } = await execAsync(devPkgCmd, { cwd: rootDir });
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
-  } catch (error) {
-    console.error("Dev exe compilation failed:", error.message);
-    throw error;
-  }
-
   console.log("\nSidecar bundled successfully!");
-  console.log(`  Output: ${join(outDir, "agent-sidecar.exe")} (mascot mode)`);
-  console.log(`  Output: ${join(outDir, "agent-sidecar-dev.exe")} (dev mode)`);
+  console.log(`  Output: ${join(outDir, "agent-sidecar.cjs")}`);
+  console.log("\nNote: Node.js v18+ is required on the target machine.");
   console.log("\nTo use in production build:");
-  console.log("  1. Copy sidecar-dist/*.exe to src-tauri/binaries/");
-  console.log("  2. Copy sidecar-dist/*.txt to src-tauri/binaries/");
+  console.log("  1. Run: npm run build");
+  console.log("  2. Tauri will bundle sidecar-dist/*.cjs and *.txt as resources");
 }
 
 bundle().catch((err) => {
