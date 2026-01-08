@@ -21,7 +21,6 @@ export function useSupikiSounds(): UseSupikiSoundsReturn {
   // Initialize audio element
   useEffect(() => {
     audioRef.current = new Audio();
-    audioRef.current.volume = 0.5;
 
     return () => {
       if (audioRef.current) {

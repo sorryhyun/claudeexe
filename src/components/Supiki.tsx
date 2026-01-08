@@ -22,6 +22,7 @@ function Supiki({ animationState, direction, onClick, onMouseDown, onDoubleClick
   const lastTimeRef = useRef<number>(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isPressedRef = useRef(false); // Sync flag to prevent double sound
+  const pressStartTimeRef = useRef<number>(0); // Track when press started
 
   // Gradually squish while pressed
   useEffect(() => {
@@ -103,6 +104,7 @@ function Supiki({ animationState, direction, onClick, onMouseDown, onDoubleClick
       setClickOffset({ x, y });
     }
     isPressedRef.current = true;
+    pressStartTimeRef.current = Date.now();
     setIsPressed(true);
     setIsReleasing(false);
     playSound(euSound);
@@ -111,10 +113,14 @@ function Supiki({ animationState, direction, onClick, onMouseDown, onDoubleClick
 
   const handleRelease = () => {
     if (isPressedRef.current) {
+      const pressDuration = Date.now() - pressStartTimeRef.current;
       isPressedRef.current = false;
       setIsPressed(false);
       setIsReleasing(true);
-      playSound(ueSound);
+      // Only play release sound if held for 0.5 seconds or longer
+      if (pressDuration >= 500) {
+        playSound(ueSound);
+      }
     }
   };
 
