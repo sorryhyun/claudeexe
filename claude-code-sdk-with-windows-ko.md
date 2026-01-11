@@ -711,9 +711,199 @@ Claude + MCP로 구현된 기능:
 
 API 키 없이 모든 것이 동작합니다 - 사용자의 Claude Code 인증을 사용합니다.
 
+## 추가 참고사항: Codex CLI 통합
+
+Claude Code CLI의 대안으로 [OpenAI Codex CLI](https://github.com/openai/codex)와도 통합할 수 있습니다. OpenAI 모델을 사용하여 유사한 기능을 제공합니다.
+
+### Codex CLI 명령어
+
+```bash
+codex exec --json --full-auto --skip-git-repo-check "프롬프트 입력"
+```
+
+주요 플래그:
+- `exec` - 프롬프트 실행 모드
+- `--json` - 스트리밍 JSON 이벤트 출력
+- `--full-auto` - 사용자 확인 없이 자동 실행 모드
+- `--skip-git-repo-check` - Git 저장소 검증 건너뛰기 (데스크톱 앱에서 중요)
+
+### 세션 재개
+
+```bash
+codex exec resume <thread-id> --json --full-auto --skip-git-repo-check "후속 프롬프트"
+```
+
+### Codex 스트리밍 JSON 이벤트
+
+Codex는 Claude Code와 다른 이벤트 타입을 출력합니다:
+
+```jsonc
+// 스레드 초기화
+{"type": "thread.started", "thread_id": "abc123"}
+
+// 턴 라이프사이클
+{"type": "turn.started", "turn_id": "xyz789"}
+{"type": "turn.completed", "turn_id": "xyz789"}
+
+// 콘텐츠 아이템
+{"type": "item.started", "item": {"type": "message", "content": [...]}}
+{"type": "item.completed", "item": {"type": "message", "content": [...]}}
+
+// 도구 호출
+{"type": "item.started", "item": {"type": "tool_call", "name": "tool_name", "arguments": {...}}}
+
+// MCP 도구 호출
+{"type": "item.completed", "item": {"type": "mcp_tool_call", "server": "mascot", "tool": "set_emotion", ...}}
+
+// 오류
+{"type": "turn.failed", "error": "문제가 발생했습니다"}
+{"type": "error", "message": "오류 상세"}
+```
+
+### Rust 이벤트 타입
+
+```rust
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum CodexStreamEvent {
+    #[serde(rename = "thread.started")]
+    ThreadStarted { thread_id: Option<String> },
+
+    #[serde(rename = "turn.started")]
+    TurnStarted { turn_id: Option<String> },
+
+    #[serde(rename = "turn.completed")]
+    TurnCompleted { turn_id: Option<String> },
+
+    #[serde(rename = "turn.failed")]
+    TurnFailed { error: Option<String> },
+
+    #[serde(rename = "item.started")]
+    ItemStarted { item: Option<CodexItem> },
+
+    #[serde(rename = "item.completed")]
+    ItemCompleted { item: Option<CodexItem> },
+
+    #[serde(rename = "error")]
+    Error { message: Option<String> },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum CodexItem {
+    #[serde(rename = "message")]
+    Message { content: Vec<CodexContent> },
+
+    #[serde(rename = "tool_call")]
+    ToolCall { name: Option<String>, arguments: Option<serde_json::Value> },
+
+    #[serde(rename = "mcp_tool_call")]
+    McpToolCall {
+        server: Option<String>,
+        tool: Option<String>,
+        arguments: Option<serde_json::Value>,
+        result: Option<serde_json::Value>,
+    },
+}
+```
+
+### Codex MCP 설정
+
+JSON 설정 파일을 사용하는 Claude Code와 달리, Codex는 `~/.codex/config.toml`에서 MCP 설정을 읽습니다:
+
+```toml
+[mcp_servers.mascot]
+command = "C:\\path\\to\\your-mcp-server.exe"
+args = []
+```
+
+Codex 실행 전에 이 설정을 프로그래밍 방식으로 작성합니다:
+
+```rust
+fn write_codex_mcp_config(mcp_exe_path: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("홈 디렉토리를 찾을 수 없습니다")?;
+    let config_path = home.join(".codex").join("config.toml");
+
+    // 필요시 디렉토리 생성
+    std::fs::create_dir_all(config_path.parent().unwrap())
+        .map_err(|e| format!(".codex 디렉토리 생성 실패: {}", e))?;
+
+    // TOML용 백슬래시 이스케이프
+    let escaped_path = mcp_exe_path.replace('\\', "\\\\");
+
+    let config = format!(
+        "[mcp_servers.mascot]\ncommand = \"{}\"\nargs = []\n",
+        escaped_path
+    );
+
+    std::fs::write(&config_path, config)
+        .map_err(|e| format!("설정 파일 작성 실패: {}", e))?;
+
+    Ok(())
+}
+```
+
+### Codex 모델 설정
+
+`--config` 플래그로 모델 설정을 전달합니다:
+
+```bash
+codex exec --json --full-auto \
+  --config model="\"gpt-4o\"" \
+  --config model_reasoning_effort="\"high\"" \
+  "프롬프트"
+```
+
+### 이미지 지원
+
+Codex는 파일 경로를 통한 이미지 입력을 지원합니다 (base64가 아님):
+
+```bash
+codex exec --json --full-auto --image "/path/to/image.png" "이 이미지를 설명해주세요"
+```
+
+Codex에 전달하기 전에 base64 이미지를 임시 파일로 저장합니다:
+
+```rust
+fn save_image_to_temp(base64_data: &str, index: usize) -> Result<PathBuf, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let image_data = STANDARD.decode(base64_data)
+        .map_err(|e| format!("디코딩 실패: {}", e))?;
+
+    let temp_path = std::env::temp_dir()
+        .join(format!("app-image-{}.png", index));
+
+    std::fs::write(&temp_path, &image_data)
+        .map_err(|e| format!("파일 작성 실패: {}", e))?;
+
+    Ok(temp_path)
+}
+```
+
+### 주요 차이점: Claude Code vs Codex
+
+| 기능 | Claude Code CLI | Codex CLI |
+|------|-----------------|-----------|
+| 인증 | Claude Code 로그인 | OpenAI API 키 |
+| MCP 설정 | `--mcp-config`로 JSON 파일 | `~/.codex/config.toml`의 TOML |
+| 세션 재개 | `--resume <session-id>` | `exec resume <thread-id>` |
+| 출력 형식 | `--output-format stream-json` | `--json` |
+| 자동 모드 | 해당 없음 (항상 인터랙티브) | `--full-auto` |
+| Git 검사 | 해당 없음 | `--skip-git-repo-check` |
+| 이미지 입력 | 프롬프트에 Base64 | `--image`로 파일 경로 |
+
+### Codex CLI 다운로드
+
+[OpenAI Codex Releases](https://github.com/openai/codex/releases)에서 Windows 실행 파일을 다운로드하세요:
+- Windows x64용 `codex-x86_64-pc-windows-msvc.exe`
+
+애플리케이션과 함께 번들하거나 사용자가 별도로 설치하도록 안내하세요.
+
 ## 리소스
 
 - [Claude Code CLI](https://claude.ai/download)
+- [OpenAI Codex CLI](https://github.com/openai/codex)
 - [Tauri v2](https://v2.tauri.app/)
 - [rmcp - Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk)
 - [Model Context Protocol](https://modelcontextprotocol.io/)

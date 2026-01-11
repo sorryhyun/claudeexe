@@ -711,9 +711,199 @@ The screenshot feature uses:
 
 All without requiring API keys - uses the user's Claude Code authentication.
 
+## Additional Notes: Codex CLI Integration
+
+As an alternative to Claude Code CLI, you can also integrate with [OpenAI Codex CLI](https://github.com/openai/codex). This provides similar capabilities with OpenAI's models.
+
+### Codex CLI Command
+
+```bash
+codex exec --json --full-auto --skip-git-repo-check "Your prompt here"
+```
+
+Key flags:
+- `exec` - Execute mode for running prompts
+- `--json` - Output streaming JSON events
+- `--full-auto` - Autonomous mode without user confirmations
+- `--skip-git-repo-check` - Skip git repository validation (important for desktop apps)
+
+### With Session Resume
+
+```bash
+codex exec resume <thread-id> --json --full-auto --skip-git-repo-check "follow-up prompt"
+```
+
+### Codex Streaming JSON Events
+
+Codex outputs different event types than Claude Code:
+
+```jsonc
+// Thread initialization
+{"type": "thread.started", "thread_id": "abc123"}
+
+// Turn lifecycle
+{"type": "turn.started", "turn_id": "xyz789"}
+{"type": "turn.completed", "turn_id": "xyz789"}
+
+// Content items
+{"type": "item.started", "item": {"type": "message", "content": [...]}}
+{"type": "item.completed", "item": {"type": "message", "content": [...]}}
+
+// Tool calls
+{"type": "item.started", "item": {"type": "tool_call", "name": "tool_name", "arguments": {...}}}
+
+// MCP tool calls
+{"type": "item.completed", "item": {"type": "mcp_tool_call", "server": "mascot", "tool": "set_emotion", ...}}
+
+// Errors
+{"type": "turn.failed", "error": "Something went wrong"}
+{"type": "error", "message": "Error details"}
+```
+
+### Rust Event Types
+
+```rust
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum CodexStreamEvent {
+    #[serde(rename = "thread.started")]
+    ThreadStarted { thread_id: Option<String> },
+
+    #[serde(rename = "turn.started")]
+    TurnStarted { turn_id: Option<String> },
+
+    #[serde(rename = "turn.completed")]
+    TurnCompleted { turn_id: Option<String> },
+
+    #[serde(rename = "turn.failed")]
+    TurnFailed { error: Option<String> },
+
+    #[serde(rename = "item.started")]
+    ItemStarted { item: Option<CodexItem> },
+
+    #[serde(rename = "item.completed")]
+    ItemCompleted { item: Option<CodexItem> },
+
+    #[serde(rename = "error")]
+    Error { message: Option<String> },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum CodexItem {
+    #[serde(rename = "message")]
+    Message { content: Vec<CodexContent> },
+
+    #[serde(rename = "tool_call")]
+    ToolCall { name: Option<String>, arguments: Option<serde_json::Value> },
+
+    #[serde(rename = "mcp_tool_call")]
+    McpToolCall {
+        server: Option<String>,
+        tool: Option<String>,
+        arguments: Option<serde_json::Value>,
+        result: Option<serde_json::Value>,
+    },
+}
+```
+
+### Codex MCP Configuration
+
+Unlike Claude Code which uses a JSON config file, Codex reads MCP config from `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.mascot]
+command = "C:\\path\\to\\your-mcp-server.exe"
+args = []
+```
+
+Write this config programmatically before spawning Codex:
+
+```rust
+fn write_codex_mcp_config(mcp_exe_path: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let config_path = home.join(".codex").join("config.toml");
+
+    // Create directory if needed
+    std::fs::create_dir_all(config_path.parent().unwrap())
+        .map_err(|e| format!("Failed to create .codex directory: {}", e))?;
+
+    // Escape backslashes for TOML
+    let escaped_path = mcp_exe_path.replace('\\', "\\\\");
+
+    let config = format!(
+        "[mcp_servers.mascot]\ncommand = \"{}\"\nargs = []\n",
+        escaped_path
+    );
+
+    std::fs::write(&config_path, config)
+        .map_err(|e| format!("Failed to write config: {}", e))?;
+
+    Ok(())
+}
+```
+
+### Codex Model Configuration
+
+Pass model settings via `--config` flag:
+
+```bash
+codex exec --json --full-auto \
+  --config model="\"gpt-4o\"" \
+  --config model_reasoning_effort="\"high\"" \
+  "Your prompt"
+```
+
+### Image Support
+
+Codex supports image inputs via file paths (not base64):
+
+```bash
+codex exec --json --full-auto --image "/path/to/image.png" "Describe this image"
+```
+
+Save base64 images to temp files before passing to Codex:
+
+```rust
+fn save_image_to_temp(base64_data: &str, index: usize) -> Result<PathBuf, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let image_data = STANDARD.decode(base64_data)
+        .map_err(|e| format!("Failed to decode: {}", e))?;
+
+    let temp_path = std::env::temp_dir()
+        .join(format!("app-image-{}.png", index));
+
+    std::fs::write(&temp_path, &image_data)
+        .map_err(|e| format!("Failed to write: {}", e))?;
+
+    Ok(temp_path)
+}
+```
+
+### Key Differences: Claude Code vs Codex
+
+| Feature | Claude Code CLI | Codex CLI |
+|---------|-----------------|-----------|
+| Auth | Claude Code login | OpenAI API key |
+| MCP Config | JSON file via `--mcp-config` | TOML at `~/.codex/config.toml` |
+| Session Resume | `--resume <session-id>` | `exec resume <thread-id>` |
+| Output Format | `--output-format stream-json` | `--json` |
+| Auto Mode | N/A (always interactive) | `--full-auto` |
+| Git Check | N/A | `--skip-git-repo-check` |
+| Image Input | Base64 in prompt | File path via `--image` |
+
+### Download Codex CLI
+
+Download the Windows executable from [OpenAI Codex Releases](https://github.com/openai/codex/releases):
+- `codex-x86_64-pc-windows-msvc.exe` for Windows x64
+
+Bundle it with your application or expect users to install it separately.
+
 ## Resources
 
 - [Claude Code CLI](https://claude.ai/download)
+- [OpenAI Codex CLI](https://github.com/openai/codex)
 - [Tauri v2](https://v2.tauri.app/)
 - [rmcp - Rust MCP SDK](https://github.com/modelcontextprotocol/rust-sdk)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
