@@ -10,7 +10,19 @@ Tauri v2 + React + TypeScript로 만든 데스크톱 마스코트 앱입니다. 
 - Claude AI와 대화 가능
 - 스크린샷, 클립보드 읽기 등 다양한 도구 지원
 
-## 설치 방법
+## 설치 방법 (사용자)
+
+### 사전 요구사항
+
+- [Node.js](https://nodejs.org/) (v18 이상)
+- [Claude Code](https://claude.ai/download) 설치 및 로그인
+
+### 실행
+
+1. [Releases](https://github.com/anthropics/claude-mascot/releases)에서 최신 버전 다운로드
+2. resources.zip은 압축 해제하여 resources/ 폴더에 넣은 뒤 `Claude Mascot.exe` 실행
+
+## 개발 환경 설정
 
 ### 사전 요구사항
 
@@ -25,8 +37,6 @@ Tauri v2 + React + TypeScript로 만든 데스크톱 마스코트 앱입니다. 
 ```bash
 npm install
 ```
-
-## 실행 방법
 
 ### 개발 모드
 
