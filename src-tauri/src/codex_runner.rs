@@ -372,6 +372,7 @@ pub fn run_query(app: tauri::AppHandle, prompt: String, images: Vec<String>) -> 
         .with_session_resume(session_id.as_ref())
         .with_json_output()
         .with_full_auto()
+        .with_skip_git_repo_check()
         .with_default_model_config();
 
     // Add system prompt via developer_instructions on first message

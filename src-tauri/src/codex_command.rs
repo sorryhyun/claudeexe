@@ -40,6 +40,11 @@ impl CodexCommandBuilder {
         self
     }
 
+    pub fn with_skip_git_repo_check(mut self) -> Self {
+        self.args.push("--skip-git-repo-check".to_string());
+        self
+    }
+
     pub fn with_config(mut self, key: &str, value: &str) -> Self {
         self.args.push("--config".to_string());
         self.args.push(format!("{}={}", key, value));
@@ -186,5 +191,14 @@ mod tests {
 
         assert!(args.iter().any(|a| a.contains("model=") && a.contains("gpt-5.2")));
         assert!(args.iter().any(|a| a.contains("model_reasoning_effort=") && a.contains("high")));
+    }
+
+    #[test]
+    fn test_builder_with_skip_git_repo_check() {
+        let args = CodexCommandBuilder::new()
+            .with_skip_git_repo_check()
+            .build();
+
+        assert!(args.contains(&"--skip-git-repo-check".to_string()));
     }
 }
