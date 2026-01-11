@@ -10,20 +10,8 @@ jobs:
   release:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
+    runs-on: windows-latest
 
-    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,17 +22,12 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install frontend dependencies
         run: npm install
+
+      - name: Build MCP server
+        run: npm run bundle:mcp
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
@@ -53,7 +36,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Claude Mascot ${{ github.ref_name }}'
-          releaseBody: 'Clawd 데스크톱 마스코트 앱 릴리즈입니다.'
+          releaseBody: 'Clawd desktop mascot app release.'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}

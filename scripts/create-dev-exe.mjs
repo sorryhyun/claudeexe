@@ -6,22 +6,29 @@
  * - claude_mascot_dev.exe (dev mode detection via exe name)
  * - claude-mascot-supiki.exe (supiki variant)
  *
- * Also copies sidecar files needed for standalone exe usage
- * and creates resources.zip for easy distribution.
+ * All artifacts are collected in the artifacts/ directory.
  */
 
-import { copyFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "fs";
-import { join, dirname } from "path";
+import { copyFileSync, existsSync, readdirSync, mkdirSync, statSync } from "fs";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
-import { execSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
-const sidecarDistDir = join(rootDir, "sidecar-dist");
+const artifactsDir = join(rootDir, "artifacts");
 
 // Find the built exe in target/release or target/debug
 const releaseDir = join(rootDir, "src-tauri/target/release");
 const debugDir = join(rootDir, "src-tauri/target/debug");
+const mcpReleaseDir = join(rootDir, "mascot-mcp/target/release");
+
+// Ensure artifacts directory exists
+function ensureArtifactsDir() {
+  if (!existsSync(artifactsDir)) {
+    mkdirSync(artifactsDir, { recursive: true });
+    console.log(`Created: ${artifactsDir}`);
+  }
+}
 
 function findAndCopyExe(dir) {
   if (!existsSync(dir)) return false;
@@ -33,16 +40,22 @@ function findAndCopyExe(dir) {
     const srcPath = join(dir, exeFile);
     const baseName = exeFile.replace(".exe", "");
 
-    // Create dev exe
+    // Copy main exe to artifacts
+    const mainDest = join(artifactsDir, exeFile);
+    console.log(`Copying ${exeFile} -> artifacts/`);
+    copyFileSync(srcPath, mainDest);
+    console.log(`Created: ${mainDest}`);
+
+    // Create dev exe in artifacts
     const devName = baseName.replace(/-/g, "_") + "_dev.exe";
-    const devPath = join(dir, devName);
+    const devPath = join(artifactsDir, devName);
     console.log(`Copying ${exeFile} -> ${devName}`);
     copyFileSync(srcPath, devPath);
     console.log(`Created: ${devPath}`);
 
-    // Create supiki exe
+    // Create supiki exe in artifacts
     const supikiName = baseName + "-supiki.exe";
-    const supikiPath = join(dir, supikiName);
+    const supikiPath = join(artifactsDir, supikiName);
     console.log(`Copying ${exeFile} -> ${supikiName}`);
     copyFileSync(srcPath, supikiPath);
     console.log(`Created: ${supikiPath}`);
@@ -52,100 +65,71 @@ function findAndCopyExe(dir) {
   return false;
 }
 
-// Also copy in the bundle directory if it exists
-function copyInBundle() {
+// Copy mascot-mcp.exe to artifacts
+function copyMcpExe() {
+  const mcpExe = join(mcpReleaseDir, "mascot-mcp.exe");
+  if (existsSync(mcpExe)) {
+    const destPath = join(artifactsDir, "mascot-mcp.exe");
+    copyFileSync(mcpExe, destPath);
+    console.log(`Copied: mascot-mcp.exe -> artifacts/`);
+    return true;
+  }
+  console.log("mascot-mcp.exe not found in release directory");
+  return false;
+}
+
+// Copy installer files from bundle directory
+function copyInstallers() {
   const bundleDirs = [
-    join(rootDir, "src-tauri/target/release/bundle/nsis"),
-    join(rootDir, "src-tauri/target/release/bundle/msi"),
+    { dir: join(rootDir, "src-tauri/target/release/bundle/nsis"), ext: ".exe" },
+    { dir: join(rootDir, "src-tauri/target/release/bundle/msi"), ext: ".msi" },
   ];
 
-  for (const dir of bundleDirs) {
+  for (const { dir, ext } of bundleDirs) {
     if (existsSync(dir)) {
-      findAndCopyExe(dir);
+      const files = readdirSync(dir);
+      for (const file of files) {
+        if (file.endsWith(ext)) {
+          const srcPath = join(dir, file);
+          // Only copy files, not directories
+          if (statSync(srcPath).isFile()) {
+            const destPath = join(artifactsDir, file);
+            copyFileSync(srcPath, destPath);
+            console.log(`Copied installer: ${file} -> artifacts/`);
+          }
+        }
+      }
     }
   }
 }
 
-const sidecarFiles = [
-  "agent-sidecar.cjs",
-  "prompt.txt",
-  "dev-prompt.txt",
-  "supiki_prompt.txt",
-];
-
-// Copy sidecar files to target directory for standalone exe usage
-function copySidecarFiles(targetDir) {
-  console.log("\nCopying sidecar files for standalone exe usage...");
-  console.log("Note: Node.js v18+ is required on the target machine.");
-
-  for (const file of sidecarFiles) {
-    const srcPath = join(sidecarDistDir, file);
-    const destPath = join(targetDir, file);
-
-    if (existsSync(srcPath)) {
-      copyFileSync(srcPath, destPath);
-      console.log(`  Copied: ${file}`);
-    } else {
-      console.log(`  Skipped (not found): ${file}`);
+// Print summary
+function printSummary() {
+  console.log("\n=== Build Artifacts ===");
+  if (existsSync(artifactsDir)) {
+    const files = readdirSync(artifactsDir);
+    for (const file of files) {
+      const filePath = join(artifactsDir, file);
+      const stats = statSync(filePath);
+      const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+      console.log(`  ${file} (${sizeMB} MB)`);
     }
   }
+  console.log(`\nAll artifacts are in: ${artifactsDir}`);
 }
 
-// Create resources.zip for easy distribution
-function createResourcesZip(targetDir) {
-  const resourcesDir = join(targetDir, "resources");
-  const zipPath = join(targetDir, "resources.zip");
-
-  console.log("\nCreating resources.zip for distribution...");
-
-  // Create resources directory
-  if (!existsSync(resourcesDir)) {
-    mkdirSync(resourcesDir, { recursive: true });
-  }
-
-  // Copy files to resources directory
-  for (const file of sidecarFiles) {
-    const srcPath = join(sidecarDistDir, file);
-    const destPath = join(resourcesDir, file);
-
-    if (existsSync(srcPath)) {
-      copyFileSync(srcPath, destPath);
-    }
-  }
-
-  try {
-    // Remove existing zip if present (using Node.js, not PowerShell)
-    if (existsSync(zipPath)) {
-      unlinkSync(zipPath);
-    }
-
-    // Use .NET ZipFile class directly (more reliable than Compress-Archive module)
-    const psCommand = `
-      Add-Type -AssemblyName System.IO.Compression.FileSystem
-      [System.IO.Compression.ZipFile]::CreateFromDirectory('${resourcesDir}', '${zipPath}')
-    `.replace(/\n/g, "; ");
-
-    execSync(`powershell -NoProfile -Command "${psCommand}"`, { stdio: "inherit" });
-    console.log(`  Created: ${zipPath}`);
-    console.log(`\n  To distribute: copy the .exe and resources.zip together.`);
-    console.log(`  Users should extract resources.zip next to the .exe`);
-  } catch (err) {
-    console.log(`  Warning: Could not create zip file: ${err.message}`);
-    console.log(`  Resources are still available in: ${resourcesDir}`);
-  }
-}
-
-console.log("Creating dev and supiki executables...");
+console.log("Creating build artifacts...\n");
+ensureArtifactsDir();
 
 if (findAndCopyExe(releaseDir)) {
-  console.log("Executables created in release directory");
-  copySidecarFiles(releaseDir);
-  createResourcesZip(releaseDir);
-  copyInBundle();
+  console.log("\nExecutables created from release build");
+  copyMcpExe();
+  copyInstallers();
+  printSummary();
 } else if (findAndCopyExe(debugDir)) {
-  console.log("Executables created in debug directory");
-  copySidecarFiles(debugDir);
-  createResourcesZip(debugDir);
+  console.log("\nExecutables created from debug build");
+  copyMcpExe();
+  printSummary();
 } else {
   console.log("No exe found to copy. Run 'npm run build' first.");
 }

@@ -7,42 +7,26 @@ use std::process::Command;
 
 use tauri::Manager;
 
-use crate::sidecar::{run_query, send_to_current_query};
-use crate::state::{
-    CURRENT_QUERY_STDIN, DEV_MODE, MAX_RECENT_CWDS, RECENT_CWDS, SESSION_ID, SIDECAR_CWD,
-    SUPIKI_MODE,
-};
+use crate::claude_runner::{check_claude_available, clear_session, run_query};
+use crate::state::{DEV_MODE, MAX_RECENT_CWDS, RECENT_CWDS, SESSION_ID, SIDECAR_CWD, SUPIKI_MODE};
 
-/// Send a message to Claude via a fresh sidecar process
+/// Send a message to Claude via the Claude CLI
 #[tauri::command]
 #[specta::specta]
 pub async fn send_agent_message(
     app: tauri::AppHandle,
     message: String,
     images: Vec<String>,
-    language: Option<String>,
+    _language: Option<String>,
 ) -> Result<(), String> {
     println!(
-        "[Rust] send_agent_message called with: {}, images: {}, language: {:?}",
+        "[Rust] send_agent_message called with: {}, images: {}",
         message,
-        images.len(),
-        language
+        images.len()
     );
 
-    // Get current session ID
-    let session_id = SESSION_ID.lock().unwrap().clone();
-
-    // Build query command
-    let cmd = serde_json::json!({
-        "type": "query",
-        "prompt": message,
-        "sessionId": session_id,
-        "images": images,
-        "language": language
-    });
-
-    // Run query in a fresh Node.js process
-    run_query(app, cmd)?;
+    // Run query using Claude CLI
+    run_query(app, message, images)?;
 
     Ok(())
 }
@@ -51,7 +35,7 @@ pub async fn send_agent_message(
 #[tauri::command]
 #[specta::specta]
 pub fn clear_agent_session() -> Result<(), String> {
-    *SESSION_ID.lock().unwrap() = None;
+    clear_session();
     println!("[Rust] Session cleared");
     Ok(())
 }
@@ -63,21 +47,19 @@ pub fn get_session_id() -> Option<String> {
     SESSION_ID.lock().unwrap().clone()
 }
 
-/// Cancel the current query (drops stdin, causing process to exit)
+/// Cancel the current query (no-op for CLI mode, process runs to completion)
 #[tauri::command]
 #[specta::specta]
 pub fn stop_sidecar() {
-    // Drop the stdin handle to signal the process to exit
-    *CURRENT_QUERY_STDIN.lock().unwrap() = None;
-    println!("[Rust] Current query cancelled");
+    // In CLI mode, we can't easily cancel a running query
+    // The process will run to completion
+    println!("[Rust] Stop requested (CLI mode - no action taken)");
 }
 
 /// Quit the application
 #[tauri::command]
 #[specta::specta]
 pub fn quit_app(app: tauri::AppHandle) {
-    stop_sidecar();
-
     // Close all windows properly before exiting
     for (_, window) in app.webview_windows() {
         let _ = window.close();
@@ -100,7 +82,7 @@ pub fn is_supiki_mode() -> bool {
     *SUPIKI_MODE.lock().unwrap()
 }
 
-/// Set custom working directory for sidecar
+/// Set custom working directory for Claude CLI
 /// Also clears the session to start fresh with the new cwd
 #[tauri::command]
 #[specta::specta]
@@ -127,13 +109,13 @@ pub fn set_sidecar_cwd(path: String) -> Result<(), String> {
     *SIDECAR_CWD.lock().unwrap() = Some(path.clone());
 
     // Clear session to start fresh with new cwd
-    *SESSION_ID.lock().unwrap() = None;
+    clear_session();
 
-    println!("[Rust] Sidecar CWD set to: {} (session cleared)", path);
+    println!("[Rust] Claude CWD set to: {} (session cleared)", path);
     Ok(())
 }
 
-/// Get current sidecar working directory (custom setting only)
+/// Get current working directory (custom setting only)
 #[tauri::command]
 #[specta::specta]
 pub fn get_sidecar_cwd() -> Option<String> {
@@ -173,26 +155,17 @@ pub fn get_recent_cwds() -> Vec<String> {
 }
 
 /// Answer an AskUserQuestion from the agent
-/// questions_json is a JSON string of the questions array (to preserve exact structure)
+/// Note: In CLI mode, this is not supported as we use --print mode
 #[tauri::command]
 #[specta::specta]
 pub fn answer_agent_question(
-    question_id: String,
-    questions_json: String,
-    answers: std::collections::HashMap<String, String>,
+    _question_id: String,
+    _questions_json: String,
+    _answers: std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
-    // Parse the questions JSON to embed in the command
-    let questions: serde_json::Value = serde_json::from_str(&questions_json)
-        .map_err(|e| format!("Invalid questions JSON: {}", e))?;
-
-    let cmd = serde_json::json!({
-        "type": "answer-question",
-        "questionId": question_id,
-        "questions": questions,
-        "answers": answers
-    });
-
-    send_to_current_query(&cmd)
+    // In CLI mode with --print, we don't support interactive questions
+    // The CLI runs to completion without interaction
+    Err("Interactive questions not supported in CLI mode. Please use --print mode.".to_string())
 }
 
 /// Open a base64-encoded image in the system's default image viewer
@@ -266,4 +239,11 @@ pub fn open_image_in_viewer(base64_data: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Check if Claude CLI is available
+#[tauri::command]
+#[specta::specta]
+pub fn check_claude_cli() -> Result<String, String> {
+    check_claude_available()
 }

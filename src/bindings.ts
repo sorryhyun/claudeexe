@@ -7,7 +7,7 @@
 
 export const commands = {
 /**
- * Send a message to Claude via a fresh sidecar process
+ * Send a message to Claude via the Claude CLI
  */
 async sendAgentMessage(message: string, images: string[], language: string | null) : Promise<Result<null, string>> {
     try {
@@ -35,7 +35,7 @@ async getSessionId() : Promise<string | null> {
     return await TAURI_INVOKE("get_session_id");
 },
 /**
- * Cancel the current query (drops stdin, causing process to exit)
+ * Cancel the current query (no-op for CLI mode, process runs to completion)
  */
 async stopSidecar() : Promise<void> {
     await TAURI_INVOKE("stop_sidecar");
@@ -60,7 +60,7 @@ async isSupikiMode() : Promise<boolean> {
 },
 /**
  * Answer an AskUserQuestion from the agent
- * questions_json is a JSON string of the questions array (to preserve exact structure)
+ * Note: In CLI mode, this is not supported as we use --print mode
  */
 async answerAgentQuestion(questionId: string, questionsJson: string, answers: { [key in string]: string }) : Promise<Result<null, string>> {
     try {
@@ -83,7 +83,7 @@ async openImageInViewer(base64Data: string) : Promise<Result<null, string>> {
 }
 },
 /**
- * Set custom working directory for sidecar
+ * Set custom working directory for Claude CLI
  * Also clears the session to start fresh with the new cwd
  */
 async setSidecarCwd(path: string) : Promise<Result<null, string>> {
@@ -95,7 +95,7 @@ async setSidecarCwd(path: string) : Promise<Result<null, string>> {
 }
 },
 /**
- * Get current sidecar working directory (custom setting only)
+ * Get current working directory (custom setting only)
  */
 async getSidecarCwd() : Promise<string | null> {
     return await TAURI_INVOKE("get_sidecar_cwd");
@@ -117,6 +117,17 @@ async getRecentCwds() : Promise<string[]> {
  */
 async pickFolder() : Promise<string | null> {
     return await TAURI_INVOKE("pick_folder");
+},
+/**
+ * Check if Claude CLI is available
+ */
+async checkClaudeCli() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_claude_cli") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit } from "@tauri-apps/api/event";
 import { commands } from "../../bindings";
@@ -12,6 +12,9 @@ function CwdWindow() {
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Track when folder picker is open to skip blur handling
+  const folderPickerOpenRef = useRef(false);
+
   const handleClose = async () => {
     const win = getCurrentWindow();
     await win.close();
@@ -21,6 +24,7 @@ function CwdWindow() {
     onEscape: handleClose,
     closeOnBlur: true,
     blurDelay: 150,
+    skipBlurRef: folderPickerOpenRef,
   });
 
   // Load current cwd and recent cwds
@@ -58,13 +62,17 @@ function CwdWindow() {
   // Open native folder picker and apply immediately
   const handleBrowse = async () => {
     try {
+      // Mark folder picker as open to prevent close-on-blur
+      folderPickerOpenRef.current = true;
       const folder = await commands.pickFolder();
+      folderPickerOpenRef.current = false;
       if (folder) {
         setInputPath(folder);
         // Automatically apply the selected folder
         await handleSetCwd(folder);
       }
     } catch (err) {
+      folderPickerOpenRef.current = false;
       console.error("[CwdWindow] Failed to pick folder:", err);
     }
   };

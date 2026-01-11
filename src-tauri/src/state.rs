@@ -2,14 +2,9 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::process::ChildStdin;
 use std::sync::Mutex;
 
-/// Current query's stdin (for sending answer-question commands mid-query)
-/// This is set when a query starts and cleared when it completes.
-pub static CURRENT_QUERY_STDIN: Mutex<Option<ChildStdin>> = Mutex::new(None);
-
-/// Current session ID (maintained by sidecar, cached here)
+/// Current session ID (maintained by Claude CLI, cached here)
 pub static SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 
 /// Dev mode flag (Claude Code features enabled)
@@ -113,10 +108,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_current_query_stdin_mutex() {
-        // Test that CURRENT_QUERY_STDIN mutex starts as None
-        let stdin = CURRENT_QUERY_STDIN.lock().unwrap();
-        assert!(stdin.is_none());
-    }
 }

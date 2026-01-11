@@ -4,11 +4,11 @@
 //! The codebase is organized into the following modules:
 //!
 //! - `state`: Global application state and session persistence
-//! - `sidecar`: AI agent sidecar process management
+//! - `claude_runner`: Claude CLI process management
 //! - `commands`: Tauri IPC commands exposed to the frontend
 
+mod claude_runner;
 mod commands;
-mod sidecar;
 mod state;
 
 use tauri::{
@@ -18,9 +18,9 @@ use tauri::{
 };
 
 use commands::{
-    answer_agent_question, clear_agent_session, get_actual_cwd, get_recent_cwds, get_session_id,
-    get_sidecar_cwd, is_dev_mode, is_supiki_mode, open_image_in_viewer, pick_folder, quit_app,
-    send_agent_message, set_sidecar_cwd, stop_sidecar,
+    answer_agent_question, check_claude_cli, clear_agent_session, get_actual_cwd, get_recent_cwds,
+    get_session_id, get_sidecar_cwd, is_dev_mode, is_supiki_mode, open_image_in_viewer,
+    pick_folder, quit_app, send_agent_message, set_sidecar_cwd, stop_sidecar,
 };
 use state::{DEV_MODE, SUPIKI_MODE};
 
@@ -41,7 +41,8 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         get_sidecar_cwd,
         get_actual_cwd,
         get_recent_cwds,
-        pick_folder
+        pick_folder,
+        check_claude_cli
     ])
 }
 
@@ -80,6 +81,17 @@ pub fn run() {
         println!("[Rust] SUPIKI mode enabled via VITE_MASCOT_TYPE env var");
     }
 
+    // Check if Claude CLI is available
+    match claude_runner::check_claude_available() {
+        Ok(version) => {
+            println!("[Rust] Claude CLI available: {}", version);
+        }
+        Err(e) => {
+            eprintln!("[Rust] Warning: {}", e);
+            // Continue anyway - user might install it later
+        }
+    }
+
     // Setup tauri-specta for type-safe commands
     let builder = create_specta_builder();
 
@@ -115,8 +127,6 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
-                        // Stop sidecar before quitting
-                        stop_sidecar();
                         // Close all windows properly before exiting
                         for (_, window) in app.webview_windows() {
                             let _ = window.close();

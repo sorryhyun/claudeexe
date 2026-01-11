@@ -3,9 +3,9 @@ node_modules/
 
 # Build outputs
 dist/
-sidecar-dist
+artifacts/
 src-tauri/target/
-
+mascot-mcp/target/
 # IDE
 .vscode/
 .idea/

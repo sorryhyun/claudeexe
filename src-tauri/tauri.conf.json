@@ -41,10 +41,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../sidecar-dist/agent-sidecar.cjs",
-      "../sidecar-dist/prompt.txt",
-      "../sidecar-dist/dev-prompt.txt",
-      "../sidecar-dist/supiki_prompt.txt"
+      "../mascot-mcp/target/release/mascot-mcp.exe"
     ]
   }
 }
