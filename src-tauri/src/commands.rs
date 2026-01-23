@@ -9,7 +9,7 @@ use tauri::Manager;
 
 use crate::claude::{check_claude_available, clear_session as clear_claude_session, run_query as run_claude_query};
 use crate::codex::{check_codex_available_with_app, clear_session as clear_codex_session, run_query as run_codex_query};
-use crate::state::{BackendMode, BACKEND_MODE, CODEX_SESSION_ID, DEV_MODE, MAX_RECENT_CWDS, RECENT_CWDS, SESSION_ID, SIDECAR_CWD, SUPIKI_MODE};
+use crate::state::{BackendMode, BACKEND_MODE, CODEX_SESSION_ID, DEV_MODE, MAX_RECENT_CWDS, RECENT_CWDS, SESSION_ID, SIDECAR_CWD, SUPIKI_MODE, save_cwd_to_disk, save_recent_cwds_to_disk};
 
 /// Send a message to the AI backend (Claude or Codex)
 #[tauri::command]
@@ -117,10 +117,15 @@ pub fn set_sidecar_cwd(path: String) -> Result<(), String> {
         if recent.len() > MAX_RECENT_CWDS {
             recent.truncate(MAX_RECENT_CWDS);
         }
+        // Persist recent cwds
+        save_recent_cwds_to_disk(&recent);
     }
 
     // Set current cwd
     *SIDECAR_CWD.lock().unwrap() = Some(path.clone());
+
+    // Persist cwd to disk
+    save_cwd_to_disk(&path);
 
     // Clear both sessions to start fresh with new cwd
     clear_claude_session();

@@ -57,6 +57,73 @@ pub fn get_codex_session_file_path() -> Option<PathBuf> {
     dirs::data_local_dir().map(|d| d.join("supiki").join("codex-session.txt"))
 }
 
+/// Get the cwd file path for persistence
+pub fn get_cwd_file_path() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|d| d.join("supiki").join("cwd.txt"))
+}
+
+/// Save cwd to disk
+pub fn save_cwd_to_disk(cwd: &str) {
+    if let Some(path) = get_cwd_file_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&path, cwd);
+        println!("[Rust] CWD saved to {:?}", path);
+    }
+}
+
+/// Load cwd from disk
+pub fn load_cwd_from_disk() -> Option<String> {
+    let path = get_cwd_file_path()?;
+    match fs::read_to_string(&path) {
+        Ok(cwd) => {
+            let cwd = cwd.trim().to_string();
+            // Validate that the directory still exists
+            if std::path::Path::new(&cwd).is_dir() {
+                println!("[Rust] CWD loaded from {:?}: {}", path, cwd);
+                Some(cwd)
+            } else {
+                println!("[Rust] Saved CWD no longer exists: {}", cwd);
+                None
+            }
+        }
+        Err(_) => None,
+    }
+}
+
+/// Get the recent cwds file path for persistence
+pub fn get_recent_cwds_file_path() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|d| d.join("supiki").join("recent-cwds.txt"))
+}
+
+/// Save recent cwds to disk
+pub fn save_recent_cwds_to_disk(cwds: &[String]) {
+    if let Some(path) = get_recent_cwds_file_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let content = cwds.join("\n");
+        let _ = fs::write(&path, content);
+    }
+}
+
+/// Load recent cwds from disk
+pub fn load_recent_cwds_from_disk() -> Vec<String> {
+    let Some(path) = get_recent_cwds_file_path() else {
+        return Vec::new();
+    };
+    match fs::read_to_string(&path) {
+        Ok(content) => content
+            .lines()
+            .filter(|line| !line.trim().is_empty() && std::path::Path::new(line).is_dir())
+            .take(MAX_RECENT_CWDS)
+            .map(String::from)
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
 /// Save Codex session ID to disk
 pub fn save_codex_session_to_disk(session_id: &str) {
     if let Some(path) = get_codex_session_file_path() {

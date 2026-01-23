@@ -28,7 +28,7 @@ use commands::{
     is_supiki_mode, open_image_in_viewer, pick_folder, quit_app, send_agent_message,
     set_backend_mode, set_sidecar_cwd, stop_sidecar,
 };
-use state::{DEV_MODE, SUPIKI_MODE};
+use state::{DEV_MODE, SUPIKI_MODE, SIDECAR_CWD, RECENT_CWDS, load_cwd_from_disk, load_recent_cwds_from_disk};
 
 /// Create the tauri-specta builder with all commands registered
 /// This is extracted so it can be reused for codegen
@@ -113,6 +113,20 @@ pub fn run() {
         Err(e) => {
             eprintln!("[Rust] Warning: {}", e);
             // Continue anyway - user might install it later
+        }
+    }
+
+    // Load persisted cwd from disk
+    if let Some(cwd) = load_cwd_from_disk() {
+        *SIDECAR_CWD.lock().unwrap() = Some(cwd);
+    }
+
+    // Load persisted recent cwds from disk
+    {
+        let loaded = load_recent_cwds_from_disk();
+        if !loaded.is_empty() {
+            *RECENT_CWDS.lock().unwrap() = loaded;
+            println!("[Rust] Loaded {} recent cwds from disk", RECENT_CWDS.lock().unwrap().len());
         }
     }
 
