@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./components/App";
 import SupikiApp from "./components/SupikiApp";
+import MiniSupikiApp from "./components/MiniSupikiApp";
 import ChatWindow from "./components/windows/ChatWindow";
 import ContextMenuWindow from "./components/windows/ContextMenuWindow";
 import ChatHistoryListWindow from "./components/windows/ChatHistoryListWindow";
 import SettingsWindow from "./components/windows/SettingsWindow";
 import CwdWindow from "./components/windows/CwdWindow";
 import { commands } from "./bindings";
+import "./i18n"; // Initialize i18n
 import "./styles/index.css";
 
 // Suppress WebView2 status bar by clearing window.status
@@ -24,6 +26,8 @@ const isContextMenu = urlParams.get("contextmenu") === "true";
 const isHistoryList = urlParams.get("historylist") === "true";
 const isSettings = urlParams.get("settings") === "true";
 const isCwd = urlParams.get("cwd") === "true";
+const isMiniMascot = urlParams.get("miniMascot") === "true";
+const miniMascotId = urlParams.get("id");
 
 // Check mascot type from environment variable (for dev mode)
 const envSupikiMode = import.meta.env.VITE_MASCOT_TYPE === "supiki";
@@ -52,6 +56,7 @@ function RootComponent() {
   if (isSettings) return <SettingsWindow />;
   if (isCwd) return <CwdWindow />;
   if (isChatWindow) return <ChatWindow />;
+  if (isMiniMascot) return <MiniSupikiApp id={miniMascotId || "1"} />;
 
   // Wait for supiki mode check before rendering mascot
   if (!loaded) return null;

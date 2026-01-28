@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit, listen } from "@tauri-apps/api/event";
+import { useTranslation } from "react-i18next";
 import SpeechBubble from "../mascot/SpeechBubble";
 import ChatInput, { type AttachedImage } from "../chat/ChatInput";
 import QuestionModal from "../modals/QuestionModal";
+import PlanModeExitModal from "../modals/PlanModeExitModal";
 import { useAgentChat } from "../../hooks/useAgentChat";
 import { useModalWindow } from "../../hooks/useModalWindow";
 import type { Emotion } from "../../emotion";
 
 function ChatWindow() {
+  const { t } = useTranslation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const skipBlurRef = useRef(false);
 
@@ -106,7 +109,7 @@ function ChatWindow() {
     <div className="chat-window" onMouseDown={handleDragStart}>
       <div className="chat-window-header" onMouseDown={handleDragStart}>
         <span className="chat-window-title">
-          {isViewMode ? "Chat History" : "Chat with Supiki"}
+          {isViewMode ? t("chat.historyTitle") : t("chat.title")}
         </span>
         <div className="chat-window-buttons">
           {!isViewMode && (
@@ -115,7 +118,7 @@ function ChatWindow() {
                 <button
                   className="chat-window-stop"
                   onClick={chat.interrupt}
-                  title="Stop"
+                  title={t("chat.stop")}
                 >
                   ■
                 </button>
@@ -125,7 +128,7 @@ function ChatWindow() {
                 onClick={() => {
                   chat.clearHistory();
                 }}
-                title="Start new chat"
+                title={t("chat.newChat")}
               >
                 ↻
               </button>
@@ -149,12 +152,12 @@ function ChatWindow() {
         {/* Tool indicator when agent is using tools */}
         {!isViewMode && chat.streamingState?.currentToolName && (
           <div className="tool-indicator">
-            Using: {chat.streamingState.currentToolName}
+            {t("chat.using")}: {chat.streamingState.currentToolName}
           </div>
         )}
         <div className="chat-messages" onMouseDown={handleDragStart}>
           {chat.messages.length === 0 && isViewMode ? (
-            <div className="history-list-empty">No messages in this session</div>
+            <div className="history-list-empty">{t("chat.emptySession")}</div>
           ) : (
             chat.messages.map((msg) => (
               <SpeechBubble
@@ -178,7 +181,7 @@ function ChatWindow() {
               }
               disabled={chat.isTyping}
               onAnalyzeScreen={() =>
-                chat.sendMessage("Capture a screenshot and analyze the problem you see")
+                chat.sendMessage(t("chat.analyzeScreenPrompt"))
               }
             />
           </div>
@@ -194,6 +197,14 @@ function ChatWindow() {
           questions={chat.pendingQuestion.questions}
           onSubmit={chat.answerQuestion}
           onCancel={chat.cancelQuestion}
+        />
+      )}
+
+      {/* Plan mode exit confirmation modal */}
+      {!isViewMode && chat.pendingPlanModeExit && (
+        <PlanModeExitModal
+          onConfirm={chat.confirmPlanModeExit}
+          onDeny={chat.denyPlanModeExit}
         />
       )}
     </div>

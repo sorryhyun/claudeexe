@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit } from "@tauri-apps/api/event";
+import { useTranslation } from "react-i18next";
 import { commands } from "../../bindings";
 import { useModalWindow } from "../../hooks/useModalWindow";
 import { Modal } from "../modals/Modal";
 import "../../styles/cwdmodal.css";
 
 function CwdWindow() {
+  const { t } = useTranslation();
   const [currentCwd, setCurrentCwd] = useState<string | null>(null);
   const [recentCwds, setRecentCwds] = useState<string[]>([]);
   const [inputPath, setInputPath] = useState("");
@@ -55,7 +57,7 @@ function CwdWindow() {
         setError(result.error);
       }
     } catch (err) {
-      setError(`Failed to set directory: ${err}`);
+      setError(`${t("cwdWindow.errorPrefix")}: ${err}`);
     }
   };
 
@@ -93,18 +95,18 @@ function CwdWindow() {
 
   return (
     <Modal
-      title="Change Path"
+      title={t("cwdWindow.title")}
       onClose={handleClose}
       className="cwd-modal"
       onMouseDown={handleDragStart}
-      footer={<span className="cwd-hint">Changes will start a new session</span>}
+      footer={<span className="cwd-hint">{t("cwdWindow.hint")}</span>}
     >
       <div className="cwd-modal-body">
         {/* Current CWD display */}
         <div className="cwd-current">
-          <span className="cwd-label">Current directory:</span>
-          <span className="cwd-path" title={currentCwd || "Loading..."}>
-            {currentCwd ? getDisplayName(currentCwd) : "Loading..."}
+          <span className="cwd-label">{t("cwdWindow.currentDir")}</span>
+          <span className="cwd-path" title={currentCwd || t("cwdWindow.loading")}>
+            {currentCwd ? getDisplayName(currentCwd) : t("cwdWindow.loading")}
           </span>
         </div>
 
@@ -113,7 +115,7 @@ function CwdWindow() {
           <input
             type="text"
             className="cwd-input"
-            placeholder="Enter directory path..."
+            placeholder={t("cwdWindow.placeholder")}
             value={inputPath}
             onChange={(e) => setInputPath(e.target.value)}
             autoFocus
@@ -124,14 +126,14 @@ function CwdWindow() {
               className="cwd-browse-btn"
               onClick={handleBrowse}
             >
-              Browse
+              {t("cwdWindow.browse")}
             </button>
             <button
               type="submit"
               className="cwd-submit-btn"
               disabled={!inputPath.trim()}
             >
-              Set
+              {t("cwdWindow.set")}
             </button>
           </div>
         </form>
@@ -141,7 +143,7 @@ function CwdWindow() {
         {/* Recent CWDs */}
         {recentCwds.length > 0 && (
           <div className="cwd-recent">
-            <span className="cwd-label">Recent:</span>
+            <span className="cwd-label">{t("cwdWindow.recent")}</span>
             <div className="cwd-recent-list">
               {recentCwds.map((path, index) => (
                 <button

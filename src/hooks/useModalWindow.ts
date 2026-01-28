@@ -84,8 +84,8 @@ export function useModalWindow(options: UseModalWindowOptions = {}) {
     }
 
     // Check if clicking on or inside a button
-    const closestButton = target.closest("button") as HTMLButtonElement | null;
-    if (closestButton && !closestButton.disabled) {
+    const closestButton = target.closest("button");
+    if (closestButton && !closestButton.hasAttribute("disabled")) {
       // Don't drag if clicking on an enabled button
       return;
     }

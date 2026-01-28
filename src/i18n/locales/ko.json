@@ -1,0 +1,70 @@
+{
+  "window": {
+    "chatHistory": "대화 기록",
+    "settings": "설정",
+    "changePath": "경로 변경"
+  },
+  "chat": {
+    "title": "Supiki와 대화하기",
+    "historyTitle": "대화 기록",
+    "stop": "멈추기",
+    "newChat": "새 대화 시작",
+    "emptySession": "이 세션에 메시지가 없습니다",
+    "using": "사용 중",
+    "analyzeScreenPrompt": "스크린샷을 캡처하고 보이는 문제를 분석해줘",
+    "errorPrefix": "앗! 문제가 발생했습니다"
+  },
+  "chatInput": {
+    "moreActions": "더 많은 작업",
+    "analyzeScreen": "화면 분석",
+    "placeholderWithImages": "메시지 추가...",
+    "placeholder": "무엇이든 말해보세요...",
+    "clickToView": "클릭하여 보기",
+    "remove": "제거"
+  },
+  "settings": {
+    "title": "설정",
+    "hint": "Supiki 응답 설정",
+    "aiBackend": "AI 백엔드",
+    "language": "언어",
+    "notInstalled": "(설치되지 않음)"
+  },
+  "contextMenu": {
+    "chatHistory": "대화 기록",
+    "settings": "설정",
+    "changePath": "경로 변경",
+    "bye": "잘 가"
+  },
+  "historyList": {
+    "title": "대화 기록",
+    "empty": "대화 기록이 없습니다",
+    "messages": "개의 메시지",
+    "yesterday": "어제",
+    "delete": "삭제"
+  },
+  "questionModal": {
+    "title": "Supiki의 질문",
+    "other": "기타",
+    "otherPlaceholder": "답변을 입력하세요...",
+    "prev": "이전",
+    "next": "다음",
+    "submit": "제출"
+  },
+  "planModeModal": {
+    "title": "계획 검토 준비 완료",
+    "message": "Supiki가 계획을 완료했으며 구현할 준비가 되었습니다. 구현을 진행하시겠습니까?",
+    "keepPlanning": "계속 계획하기",
+    "startImplementation": "구현 시작"
+  },
+  "cwdWindow": {
+    "title": "경로 변경",
+    "currentDir": "현재 디렉토리:",
+    "loading": "로딩 중...",
+    "placeholder": "디렉토리 경로 입력...",
+    "hint": "변경 시 새 세션이 시작됩니다",
+    "browse": "찾아보기",
+    "set": "설정",
+    "recent": "최근:",
+    "errorPrefix": "디렉토리 설정 실패"
+  }
+}

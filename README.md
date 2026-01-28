@@ -1,4 +1,4 @@
-# Supiki
+# SupikiEXE
 
 Tauri v2 + React + TypeScript로 만든 데스크톱 마스코트 앱입니다. Supiki가 화면 위를 돌아다닙니다.
 

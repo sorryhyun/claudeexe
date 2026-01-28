@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, ReactNode } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useTranslation } from "react-i18next";
 import { useAnimationState, AnimationState, Direction } from "../hooks/useMascotState";
 import { usePhysics } from "../hooks/usePhysics";
 import { useChatWindow } from "../hooks/useChatWindow";
@@ -26,6 +27,7 @@ interface MascotAppProps {
 }
 
 export function MascotApp({ renderMascot, onEmotionChange }: MascotAppProps) {
+  const { t } = useTranslation();
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
 
@@ -177,7 +179,7 @@ export function MascotApp({ renderMascot, onEmotionChange }: MascotAppProps) {
         // Open session viewer window
         new WebviewWindow("session-viewer", {
           url: `index.html?chat=true&viewSession=${sessionId}`,
-          title: "Chat History",
+          title: t("window.chatHistory"),
           width: CHAT_WIDTH,
           height: CHAT_HEIGHT,
           x: Math.round(mascotX + WINDOW_WIDTH - 5),
@@ -191,7 +193,7 @@ export function MascotApp({ renderMascot, onEmotionChange }: MascotAppProps) {
         });
       },
     }),
-    [mascot, physics, chatWindow, physicsEnabled]
+    [mascot, physics, chatWindow, physicsEnabled, t]
   );
 
   useMascotEvents(eventHandlers, {

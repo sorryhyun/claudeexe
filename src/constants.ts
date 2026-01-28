@@ -5,6 +5,11 @@
 // Window dimensions (logical pixels)
 export const WINDOW_WIDTH = 160;
 export const WINDOW_HEIGHT = 140;
+
+// Mini mascot dimensions (half size)
+export const MINI_WINDOW_WIDTH = 80;
+export const MINI_WINDOW_HEIGHT = 70;
+export const MAX_MINI_MASCOTS = 5;
 export const CHAT_WIDTH = 280;
 export const CHAT_HEIGHT = 280;
 export const CONTEXT_MENU_WIDTH = 90;

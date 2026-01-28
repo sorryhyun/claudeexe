@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent, AttachedImage } from "./agentTypes";
+import type { AgentQueryCallbacks, Emotion, AgentQuestionEvent, AttachedImage, ExitPlanModeEvent } from "./agentTypes";
 import { EMOTIONS } from "../emotion";
 import { commands } from "../bindings";
 import { getLanguage, getBackendMode } from "./settingsStorage";
@@ -10,17 +10,23 @@ type EmotionCallback = (emotion: Emotion, duration: number) => void;
 // Question callback type
 type QuestionCallback = (event: AgentQuestionEvent) => void;
 
+// ExitPlanMode callback type
+type ExitPlanModeCallback = (event: ExitPlanModeEvent) => void;
+
 export class AgentService {
   private listeners: UnlistenFn[] = [];
   private emotionCallbacks: EmotionCallback[] = [];
   private emotionListener: UnlistenFn | null = null;
   private questionCallbacks: QuestionCallback[] = [];
   private questionListener: UnlistenFn | null = null;
+  private exitPlanModeCallbacks: ExitPlanModeCallback[] = [];
+  private exitPlanModeListener: UnlistenFn | null = null;
 
   constructor() {
     // Set up persistent event listeners
     this.setupEmotionListener();
     this.setupQuestionListener();
+    this.setupExitPlanModeListener();
     // Sync backend mode from settings on startup
     this.syncBackendMode();
   }
@@ -72,6 +78,23 @@ export class AgentService {
       (event) => {
         console.log("[AgentService] Question event:", event.payload);
         for (const callback of this.questionCallbacks) {
+          callback(event.payload);
+        }
+      }
+    );
+  }
+
+  /**
+   * Set up persistent listener for ExitPlanMode events from sidecar
+   */
+  private async setupExitPlanModeListener(): Promise<void> {
+    if (this.exitPlanModeListener) return;
+
+    this.exitPlanModeListener = await listen<ExitPlanModeEvent>(
+      "agent-exit-plan-mode",
+      (event) => {
+        console.log("[AgentService] ExitPlanMode event:", event.payload);
+        for (const callback of this.exitPlanModeCallbacks) {
           callback(event.payload);
         }
       }
@@ -207,6 +230,40 @@ export class AgentService {
       JSON.stringify(questions),
       answers
     );
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  }
+
+  /**
+   * Register a callback for ExitPlanMode events
+   */
+  onExitPlanMode(callback: ExitPlanModeCallback): () => void {
+    this.exitPlanModeCallbacks.push(callback);
+    return () => {
+      this.exitPlanModeCallbacks = this.exitPlanModeCallbacks.filter(
+        (cb) => cb !== callback
+      );
+    };
+  }
+
+  /**
+   * Confirm ExitPlanMode - allows agent to exit plan mode
+   */
+  async confirmPlanModeExit(toolUseId: string): Promise<void> {
+    console.log("[AgentService] Confirming plan mode exit:", toolUseId);
+    const result = await commands.confirmPlanModeExit(toolUseId);
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  }
+
+  /**
+   * Deny ExitPlanMode - keeps agent in plan mode
+   */
+  async denyPlanModeExit(toolUseId: string, reason: string): Promise<void> {
+    console.log("[AgentService] Denying plan mode exit:", toolUseId, reason);
+    const result = await commands.denyPlanModeExit(toolUseId, reason);
     if (result.status === "error") {
       throw new Error(result.error);
     }

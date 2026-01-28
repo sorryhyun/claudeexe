@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emit } from "@tauri-apps/api/event";
+import { useTranslation } from "react-i18next";
 import {
   HISTORY_LIST_WIDTH,
   HISTORY_LIST_HEIGHT,
@@ -13,6 +14,8 @@ import { useModalWindow } from "../../hooks/useModalWindow";
 import { openFloatingWindow } from "../../utils/windowManager";
 
 function ContextMenuWindow() {
+  const { t } = useTranslation();
+
   const handleClose = async () => {
     const win = getCurrentWindow();
     await win.close();
@@ -29,7 +32,7 @@ function ContextMenuWindow() {
     await openFloatingWindow({
       label: "historylist",
       url: "index.html?historylist=true",
-      title: "Chat History",
+      title: t("window.chatHistory"),
       width: HISTORY_LIST_WIDTH,
       height: HISTORY_LIST_HEIGHT,
       offsetY: -HISTORY_LIST_HEIGHT + 60,
@@ -40,7 +43,7 @@ function ContextMenuWindow() {
     await openFloatingWindow({
       label: "settings",
       url: "index.html?settings=true",
-      title: "Settings",
+      title: t("window.settings"),
       width: SETTINGS_WINDOW_WIDTH,
       height: SETTINGS_WINDOW_HEIGHT,
       offsetY: -SETTINGS_WINDOW_HEIGHT + 80,
@@ -51,7 +54,7 @@ function ContextMenuWindow() {
     await openFloatingWindow({
       label: "cwd",
       url: "index.html?cwd=true",
-      title: "Change Path",
+      title: t("window.changePath"),
       width: CWD_WINDOW_WIDTH,
       height: CWD_WINDOW_HEIGHT,
       offsetY: -CWD_WINDOW_HEIGHT + 80,
@@ -70,17 +73,17 @@ function ContextMenuWindow() {
   return (
     <div className="context-menu-window">
       <button className="context-menu-item" onClick={handleChatHistory}>
-        Chat History
+        {t("contextMenu.chatHistory")}
       </button>
       <button className="context-menu-item" onClick={handleSettings}>
-        Settings
+        {t("contextMenu.settings")}
       </button>
       <button className="context-menu-item" onClick={handleChangePath}>
-        Change Path
+        {t("contextMenu.changePath")}
       </button>
       <div className="context-menu-divider" />
       <button className="context-menu-item context-menu-item-exit" onClick={handleExit}>
-        Bye
+        {t("contextMenu.bye")}
       </button>
     </div>
   );

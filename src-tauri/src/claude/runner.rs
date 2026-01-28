@@ -2,10 +2,12 @@
 //!
 //! Spawns the `claude` CLI process and streams responses back via Tauri events.
 //! Uses --print mode with streaming JSON output for real-time updates.
+//! Handles interactive tools (ExitPlanMode, AskUserQuestion) via bidirectional stdin/stdout.
 
 use std::io::{BufRead, BufReader, Cursor, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{ChildStdin, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use base64::prelude::*;
@@ -15,6 +17,14 @@ use tauri::Emitter;
 
 use super::command::ClaudeCommandBuilder;
 use crate::state::{save_session_to_disk, DEV_MODE, SESSION_ID, SIDECAR_CWD, SUPIKI_MODE};
+
+/// Global stdin handle for sending responses to Claude CLI
+static CLAUDE_STDIN: std::sync::LazyLock<Arc<Mutex<Option<ChildStdin>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(None)));
+
+/// Track active subagent (Task) IDs for the current conversation turn
+static ACTIVE_SUBAGENTS: std::sync::LazyLock<Arc<Mutex<Vec<String>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 /// Streaming JSON events from Claude CLI
 #[derive(Debug, Deserialize)]
@@ -67,6 +77,57 @@ pub enum ContentBlock {
 pub struct ToolUseEvent {
     pub tool: String,
     pub input: serde_json::Value,
+}
+
+/// Event emitted when AskUserQuestion tool is used
+/// Field names match frontend's AgentQuestionEvent type
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestionEvent {
+    pub question_id: String, // This is the tool_use_id
+    pub questions: Vec<QuestionData>,
+}
+
+/// Question data from AskUserQuestion tool
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct QuestionData {
+    pub question: String,
+    #[serde(default)]
+    pub header: Option<String>,
+    #[serde(default)]
+    pub options: Vec<OptionData>,
+    #[serde(default, rename = "multiSelect")]
+    pub multi_select: bool,
+}
+
+/// Option data for AskUserQuestion
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OptionData {
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// Event emitted when ExitPlanMode tool is used
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ExitPlanModeEvent {
+    pub tool_use_id: String,
+}
+
+/// Event emitted when a subagent (Task tool) starts
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentStartEvent {
+    pub task_id: String,
+    pub description: String,
+}
+
+/// Event emitted when a subagent (Task tool) completes
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentEndEvent {
+    pub task_id: String,
 }
 
 /// Get the path to the current executable (which runs MCP server with --mcp flag)
@@ -184,6 +245,63 @@ fn convert_to_webp(base64_data: &str, original_media_type: &str) -> (String, Str
     }
 }
 
+/// Send a tool result back to Claude CLI via stdin
+pub fn send_tool_result(tool_use_id: &str, content: &str, is_error: bool) -> Result<(), String> {
+    let mut stdin_guard = CLAUDE_STDIN.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    if let Some(ref mut stdin) = *stdin_guard {
+        let result = if is_error {
+            serde_json::json!({
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
+                "content": content,
+                "is_error": true
+            })
+        } else {
+            serde_json::json!({
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
+                "content": content
+            })
+        };
+
+        let json_str = result.to_string();
+        eprintln!("[Rust] Sending tool result: {}", json_str);
+
+        stdin
+            .write_all(json_str.as_bytes())
+            .map_err(|e| format!("Failed to write tool result: {}", e))?;
+        stdin
+            .write_all(b"\n")
+            .map_err(|e| format!("Failed to write newline: {}", e))?;
+        stdin.flush().map_err(|e| format!("Failed to flush: {}", e))?;
+
+        Ok(())
+    } else {
+        Err("Claude stdin not available".to_string())
+    }
+}
+
+/// Send AskUserQuestion response back to Claude CLI
+pub fn respond_to_ask_user_question(
+    tool_use_id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> Result<(), String> {
+    let content = serde_json::to_string(&serde_json::json!({ "answers": answers }))
+        .map_err(|e| format!("Failed to serialize answers: {}", e))?;
+    send_tool_result(tool_use_id, &content, false)
+}
+
+/// Confirm ExitPlanMode - allows Claude to exit plan mode
+pub fn confirm_exit_plan_mode(tool_use_id: &str) -> Result<(), String> {
+    send_tool_result(tool_use_id, "Plan mode exited.", false)
+}
+
+/// Deny ExitPlanMode - keeps Claude in plan mode
+pub fn deny_exit_plan_mode(tool_use_id: &str, reason: &str) -> Result<(), String> {
+    send_tool_result(tool_use_id, reason, true)
+}
+
 /// Build a stream-json user message with text and optional images
 fn build_stream_json_message(prompt: &str, images: &[String]) -> String {
     let mut content = vec![serde_json::json!({
@@ -244,14 +362,11 @@ pub fn run_query(app: tauri::AppHandle, prompt: String, images: Vec<String>) -> 
     let has_images = !images.is_empty();
 
     // Build command arguments using builder
+    // Always use streaming input for bidirectional communication (needed for interactive tools)
     let mut builder = ClaudeCommandBuilder::new()
         .with_streaming_output()
+        .with_streaming_input()
         .with_mcp_config(&mcp_config_path);
-
-    // Use streaming input when images are present
-    if has_images {
-        builder = builder.with_streaming_input();
-    }
 
     // In dev mode, allow all tools and skip permission prompts
     // In normal mode, restrict to only mascot MCP tools
@@ -283,15 +398,12 @@ pub fn run_query(app: tauri::AppHandle, prompt: String, images: Vec<String>) -> 
     );
 
     // Build the command
+    // Always pipe stdin for bidirectional communication
     let mut cmd = Command::new("claude");
     cmd.args(&args)
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-
-    // Need stdin if sending images
-    if has_images {
-        cmd.stdin(Stdio::piped());
-    }
 
     // Set working directory if custom cwd is set
     let custom_cwd = SIDECAR_CWD.lock().unwrap().clone();
@@ -305,17 +417,26 @@ pub fn run_query(app: tauri::AppHandle, prompt: String, images: Vec<String>) -> 
         .spawn()
         .map_err(|e| format!("Failed to spawn claude CLI: {}. Is Claude Code installed?", e))?;
 
-    // Write message to stdin if we have images
-    if has_images {
-        if let Some(mut stdin) = child.stdin.take() {
-            let message = build_stream_json_message(&prompt, &images);
-            eprintln!("[Rust] Sending stream-json message with {} images", images.len());
-            if let Err(e) = stdin.write_all(message.as_bytes()) {
-                eprintln!("[Rust] Failed to write to stdin: {}", e);
-            }
-            // Drop stdin to signal EOF
-            drop(stdin);
+    // Take stdin and store it globally for interactive tool responses
+    if let Some(mut stdin) = child.stdin.take() {
+        // Send the initial user message
+        let message = build_stream_json_message(&prompt, &images);
+        eprintln!(
+            "[Rust] Sending stream-json message with {} images",
+            images.len()
+        );
+        if let Err(e) = stdin.write_all(message.as_bytes()) {
+            eprintln!("[Rust] Failed to write to stdin: {}", e);
         }
+        if let Err(e) = stdin.write_all(b"\n") {
+            eprintln!("[Rust] Failed to write newline: {}", e);
+        }
+        if let Err(e) = stdin.flush() {
+            eprintln!("[Rust] Failed to flush stdin: {}", e);
+        }
+
+        // Store stdin globally for later interactive tool responses
+        *CLAUDE_STDIN.lock().unwrap() = Some(stdin);
     }
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
@@ -373,6 +494,9 @@ pub fn run_query(app: tauri::AppHandle, prompt: String, images: Vec<String>) -> 
             }
         }
 
+        // Clean up global stdin reference
+        *CLAUDE_STDIN.lock().unwrap() = None;
+
         eprintln!("[Rust] Claude CLI process ended");
     });
 
@@ -410,11 +534,60 @@ fn handle_stream_event(app: &tauri::AppHandle, event: StreamEvent) {
                     ContentBlock::Text { text } => {
                         let _ = app.emit("agent-stream", &text);
                     }
-                    ContentBlock::ToolUse { name, input, .. } => {
+                    ContentBlock::ToolUse { id, name, input } => {
                         eprintln!("[Rust] Tool use: {} with input: {:?}", name, input);
 
-                        // Emit specific events based on tool
-                        if name.contains("set_emotion") {
+                        // Handle Task tool - emit subagent start event
+                        if name == "Task" {
+                            let description = input
+                                .get("description")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("task")
+                                .to_string();
+                            let task_id = format!("{}_{}", id.clone(), description.replace(' ', "_"));
+                            eprintln!("[Rust] Task tool detected, emitting subagent-start: {}", task_id);
+
+                            // Track this subagent
+                            if let Ok(mut subagents) = ACTIVE_SUBAGENTS.lock() {
+                                subagents.push(task_id.clone());
+                            }
+
+                            let _ = app.emit(
+                                "subagent-start",
+                                SubagentStartEvent {
+                                    task_id,
+                                    description,
+                                },
+                            );
+                        }
+
+                        // Handle interactive tools that need user response
+                        if name == "ExitPlanMode" {
+                            eprintln!("[Rust] ExitPlanMode tool detected, emitting event");
+                            let _ = app.emit(
+                                "agent-exit-plan-mode",
+                                ExitPlanModeEvent {
+                                    tool_use_id: id.clone(),
+                                },
+                            );
+                        } else if name == "AskUserQuestion" {
+                            eprintln!("[Rust] AskUserQuestion tool detected, emitting event");
+                            // Parse questions from input
+                            let questions: Vec<QuestionData> = input
+                                .get("questions")
+                                .and_then(|q| serde_json::from_value(q.clone()).ok())
+                                .unwrap_or_default();
+
+                            // Emit with the event name the frontend expects
+                            let _ = app.emit(
+                                "agent-ask-question",
+                                AskUserQuestionEvent {
+                                    question_id: id.clone(),
+                                    questions,
+                                },
+                            );
+                        } else if name.contains("set_emotion") {
+                            // Emit specific events based on MCP tool
                             let _ = app.emit("agent-emotion", &input);
                         } else if name.contains("move_to") {
                             let _ = app.emit("clawd-move", &input);
@@ -449,6 +622,19 @@ fn handle_stream_event(app: &tauri::AppHandle, event: StreamEvent) {
             if let Some(sid) = session_id {
                 *SESSION_ID.lock().unwrap() = Some(sid.clone());
                 save_session_to_disk(&sid);
+            }
+
+            // Emit subagent-end for all active subagents when conversation turn completes
+            if let Ok(mut subagents) = ACTIVE_SUBAGENTS.lock() {
+                for task_id in subagents.drain(..) {
+                    eprintln!("[Rust] Emitting subagent-end for: {}", task_id);
+                    let _ = app.emit(
+                        "subagent-end",
+                        SubagentEndEvent {
+                            task_id,
+                        },
+                    );
+                }
             }
 
             // Emit result event

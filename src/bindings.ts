@@ -60,11 +60,34 @@ async isSupikiMode() : Promise<boolean> {
 },
 /**
  * Answer an AskUserQuestion from the agent
- * Note: In CLI mode, this is not supported as we use --print mode
+ * The tool_use_id identifies which tool call to respond to
+ * The answers map question indices to selected answers
  */
-async answerAgentQuestion(questionId: string, questionsJson: string, answers: { [key in string]: string }) : Promise<Result<null, string>> {
+async answerAgentQuestion(toolUseId: string, questionsJson: string, answers: { [key in string]: string }) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("answer_agent_question", { questionId, questionsJson, answers }) };
+    return { status: "ok", data: await TAURI_INVOKE("answer_agent_question", { toolUseId, questionsJson, answers }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Respond to ExitPlanMode tool - confirm exiting plan mode
+ */
+async confirmPlanModeExit(toolUseId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("confirm_plan_mode_exit", { toolUseId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Respond to ExitPlanMode tool - deny exiting plan mode
+ */
+async denyPlanModeExit(toolUseId: string, reason: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("deny_plan_mode_exit", { toolUseId, reason }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

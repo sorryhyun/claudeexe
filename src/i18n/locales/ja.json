@@ -1,0 +1,70 @@
+{
+  "window": {
+    "chatHistory": "チャット履歴",
+    "settings": "設定",
+    "changePath": "パスを変更"
+  },
+  "chat": {
+    "title": "Supikiとチャット",
+    "historyTitle": "チャット履歴",
+    "stop": "停止",
+    "newChat": "新しいチャットを開始",
+    "emptySession": "このセッションにはメッセージがありません",
+    "using": "使用中",
+    "analyzeScreenPrompt": "スクリーンショットを撮って、見える問題を分析してください",
+    "errorPrefix": "おっと！問題が発生しました"
+  },
+  "chatInput": {
+    "moreActions": "その他のアクション",
+    "analyzeScreen": "画面を分析",
+    "placeholderWithImages": "メッセージを追加...",
+    "placeholder": "何か言ってみて...",
+    "clickToView": "クリックして表示",
+    "remove": "削除"
+  },
+  "settings": {
+    "title": "設定",
+    "hint": "Supikiの応答設定",
+    "aiBackend": "AIバックエンド",
+    "language": "言語",
+    "notInstalled": "(未インストール)"
+  },
+  "contextMenu": {
+    "chatHistory": "チャット履歴",
+    "settings": "設定",
+    "changePath": "パスを変更",
+    "bye": "バイバイ"
+  },
+  "historyList": {
+    "title": "チャット履歴",
+    "empty": "チャット履歴がありません",
+    "messages": "件のメッセージ",
+    "yesterday": "昨日",
+    "delete": "削除"
+  },
+  "questionModal": {
+    "title": "Supikiからの質問",
+    "other": "その他",
+    "otherPlaceholder": "回答を入力...",
+    "prev": "前へ",
+    "next": "次へ",
+    "submit": "送信"
+  },
+  "planModeModal": {
+    "title": "計画のレビュー準備完了",
+    "message": "Supikiは計画を完了し、実装する準備ができました。実装を進めますか？",
+    "keepPlanning": "計画を続ける",
+    "startImplementation": "実装を開始"
+  },
+  "cwdWindow": {
+    "title": "パスを変更",
+    "currentDir": "現在のディレクトリ:",
+    "loading": "読み込み中...",
+    "placeholder": "ディレクトリパスを入力...",
+    "hint": "変更すると新しいセッションが開始されます",
+    "browse": "参照",
+    "set": "設定",
+    "recent": "最近:",
+    "errorPrefix": "ディレクトリの設定に失敗"
+  }
+}

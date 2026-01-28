@@ -1,29 +1,33 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTo } from "@tauri-apps/api/event";
+import { useTranslation } from "react-i18next";
 import { sessionStorage } from "../../services/sessionStorage";
 import type { ChatSession } from "../../services/agentTypes";
 import { useModalWindow } from "../../hooks/useModalWindow";
 import { Modal } from "../modals/Modal";
+import { getLanguage } from "../../services/settingsStorage";
 
-function formatDate(timestamp: number): string {
+function formatDate(timestamp: number, t: (key: string) => string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const locale = getLanguage();
 
   if (days === 0) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   } else if (days === 1) {
-    return "Yesterday";
+    return t("historyList.yesterday");
   } else if (days < 7) {
-    return date.toLocaleDateString([], { weekday: "short" });
+    return date.toLocaleDateString(locale, { weekday: "short" });
   } else {
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+    return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
   }
 }
 
 function ChatHistoryListWindow() {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
 
   useEffect(() => {
@@ -56,14 +60,14 @@ function ChatHistoryListWindow() {
 
   return (
     <Modal
-      title="Chat History"
+      title={t("historyList.title")}
       onClose={handleClose}
       className="history-list-window"
       onMouseDown={handleDragStart}
     >
       <div className="history-list-body">
         {sessions.length === 0 ? (
-          <div className="history-list-empty">No chat history yet</div>
+          <div className="history-list-empty">{t("historyList.empty")}</div>
         ) : (
           sessions.map((session) => (
             <div
@@ -74,14 +78,14 @@ function ChatHistoryListWindow() {
               <div className="history-list-item-content">
                 <div className="history-list-item-title">{session.title}</div>
                 <div className="history-list-item-meta">
-                  <span>{session.messageCount} messages</span>
-                  <span>{formatDate(session.updatedAt)}</span>
+                  <span>{session.messageCount} {t("historyList.messages")}</span>
+                  <span>{formatDate(session.updatedAt, t)}</span>
                 </div>
               </div>
               <button
                 className="history-list-item-delete"
                 onClick={(e) => handleDeleteSession(e, session.id)}
-                title="Delete"
+                title={t("historyList.delete")}
               >
                 x
               </button>

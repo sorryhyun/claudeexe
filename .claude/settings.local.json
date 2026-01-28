@@ -32,7 +32,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:developers.openai.com)",
       "Bash(cargo run:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(npm run tauri:codegen:*)"
     ]
   }
 }

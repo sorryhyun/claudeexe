@@ -1,0 +1,70 @@
+{
+  "window": {
+    "chatHistory": "Chat History",
+    "settings": "Settings",
+    "changePath": "Change Path"
+  },
+  "chat": {
+    "title": "Chat with Supiki",
+    "historyTitle": "Chat History",
+    "stop": "Stop",
+    "newChat": "Start new chat",
+    "emptySession": "No messages in this session",
+    "using": "Using",
+    "analyzeScreenPrompt": "Capture a screenshot and analyze the problem you see",
+    "errorPrefix": "Oops! Something went wrong"
+  },
+  "chatInput": {
+    "moreActions": "More actions",
+    "analyzeScreen": "Analyze screen",
+    "placeholderWithImages": "Add a message...",
+    "placeholder": "Say something...",
+    "clickToView": "Click to view",
+    "remove": "Remove"
+  },
+  "settings": {
+    "title": "Settings",
+    "hint": "Preferences for Supiki responses",
+    "aiBackend": "AI Backend",
+    "language": "Language",
+    "notInstalled": "(not installed)"
+  },
+  "contextMenu": {
+    "chatHistory": "Chat History",
+    "settings": "Settings",
+    "changePath": "Change Path",
+    "bye": "Bye"
+  },
+  "historyList": {
+    "title": "Chat History",
+    "empty": "No chat history yet",
+    "messages": "messages",
+    "yesterday": "Yesterday",
+    "delete": "Delete"
+  },
+  "questionModal": {
+    "title": "Question from Supiki",
+    "other": "Other",
+    "otherPlaceholder": "Enter your answer...",
+    "prev": "Prev",
+    "next": "Next",
+    "submit": "Submit"
+  },
+  "planModeModal": {
+    "title": "Plan Ready for Review",
+    "message": "Supiki has finished planning and is ready to implement. Would you like to proceed with the implementation?",
+    "keepPlanning": "Keep Planning",
+    "startImplementation": "Start Implementation"
+  },
+  "cwdWindow": {
+    "title": "Change Path",
+    "currentDir": "Current directory:",
+    "loading": "Loading...",
+    "placeholder": "Enter directory path...",
+    "hint": "Changes will start a new session",
+    "browse": "Browse",
+    "set": "Set",
+    "recent": "Recent:",
+    "errorPrefix": "Failed to set directory"
+  }
+}

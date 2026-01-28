@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { AgentQuestion } from "../../services/agentTypes";
 import { useModalWindow } from "../../hooks/useModalWindow";
 import "../../styles/questionmodal.css";
@@ -16,6 +17,7 @@ function QuestionModal({
   onSubmit,
   onCancel,
 }: QuestionModalProps) {
+  const { t } = useTranslation();
   // Track current question index for navigation
   const [currentIndex, setCurrentIndex] = useState(0);
   // Track selected answers for each question
@@ -135,7 +137,7 @@ function QuestionModal({
     <div className="modal-overlay question-modal-overlay">
       <div className="modal question-modal">
         <div className="modal-header question-modal-header">
-          <span>Question from Supiki</span>
+          <span>{t("questionModal.title")}</span>
           {onCancel && (
             <button className="modal-close" onClick={onCancel}>
               x
@@ -196,7 +198,7 @@ function QuestionModal({
                   )}
                 </span>
                 <div className="option-content">
-                  <div className="option-label">Other</div>
+                  <div className="option-label">{t("questionModal.other")}</div>
                 </div>
               </button>
 
@@ -204,7 +206,7 @@ function QuestionModal({
                 <input
                   type="text"
                   className="other-input"
-                  placeholder="Enter your answer..."
+                  placeholder={t("questionModal.otherPlaceholder")}
                   value={otherText[currentQuestion.question] || ""}
                   onChange={(e) =>
                     setOtherText((prev) => ({
@@ -227,7 +229,7 @@ function QuestionModal({
                 onClick={goToPrev}
                 disabled={isFirst}
               >
-                Prev
+                {t("questionModal.prev")}
               </button>
               <span className="question-indicator">
                 {currentIndex + 1} / {questions.length}
@@ -237,7 +239,7 @@ function QuestionModal({
                 onClick={goToNext}
                 disabled={isLast}
               >
-                Next
+                {t("questionModal.next")}
               </button>
             </div>
           )}
@@ -246,7 +248,7 @@ function QuestionModal({
             onClick={handleSubmit}
             disabled={!allAnswered}
           >
-            Submit
+            {t("questionModal.submit")}
           </button>
         </div>
       </div>

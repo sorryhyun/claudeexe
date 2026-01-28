@@ -7,7 +7,11 @@ use std::process::Command;
 
 use tauri::Manager;
 
-use crate::claude::{check_claude_available, clear_session as clear_claude_session, run_query as run_claude_query};
+use crate::claude::{
+    check_claude_available, clear_session as clear_claude_session,
+    confirm_exit_plan_mode, deny_exit_plan_mode, respond_to_ask_user_question,
+    run_query as run_claude_query,
+};
 use crate::codex::{check_codex_available_with_app, clear_session as clear_codex_session, run_query as run_codex_query};
 use crate::state::{BackendMode, BACKEND_MODE, CODEX_SESSION_ID, DEV_MODE, MAX_RECENT_CWDS, RECENT_CWDS, SESSION_ID, SIDECAR_CWD, SUPIKI_MODE, save_cwd_to_disk, save_recent_cwds_to_disk};
 
@@ -175,17 +179,49 @@ pub fn get_recent_cwds() -> Vec<String> {
 }
 
 /// Answer an AskUserQuestion from the agent
-/// Note: In CLI mode, this is not supported as we use --print mode
+/// The tool_use_id identifies which tool call to respond to
+/// The answers map question indices to selected answers
 #[tauri::command]
 #[specta::specta]
 pub fn answer_agent_question(
-    _question_id: String,
+    tool_use_id: String,
     _questions_json: String,
-    _answers: std::collections::HashMap<String, String>,
+    answers: std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
-    // In CLI mode with --print, we don't support interactive questions
-    // The CLI runs to completion without interaction
-    Err("Interactive questions not supported in CLI mode. Please use --print mode.".to_string())
+    let mode = *BACKEND_MODE.lock().unwrap();
+    match mode {
+        BackendMode::Claude => respond_to_ask_user_question(&tool_use_id, answers),
+        BackendMode::Codex => {
+            // Codex doesn't support interactive questions
+            Err("Interactive questions not supported in Codex mode.".to_string())
+        }
+    }
+}
+
+/// Respond to ExitPlanMode tool - confirm exiting plan mode
+#[tauri::command]
+#[specta::specta]
+pub fn confirm_plan_mode_exit(tool_use_id: String) -> Result<(), String> {
+    let mode = *BACKEND_MODE.lock().unwrap();
+    match mode {
+        BackendMode::Claude => confirm_exit_plan_mode(&tool_use_id),
+        BackendMode::Codex => {
+            Err("Plan mode not supported in Codex mode.".to_string())
+        }
+    }
+}
+
+/// Respond to ExitPlanMode tool - deny exiting plan mode
+#[tauri::command]
+#[specta::specta]
+pub fn deny_plan_mode_exit(tool_use_id: String, reason: String) -> Result<(), String> {
+    let mode = *BACKEND_MODE.lock().unwrap();
+    match mode {
+        BackendMode::Claude => deny_exit_plan_mode(&tool_use_id, &reason),
+        BackendMode::Codex => {
+            Err("Plan mode not supported in Codex mode.".to_string())
+        }
+    }
 }
 
 /// Open a base64-encoded image in the system's default image viewer

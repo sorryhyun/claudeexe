@@ -76,6 +76,11 @@ export interface AgentQuestionEvent {
   questions: AgentQuestion[];
 }
 
+// ExitPlanMode event from agent
+export interface ExitPlanModeEvent {
+  toolUseId: string;
+}
+
 // Attached image for chat messages
 export interface AttachedImage {
   id: string;

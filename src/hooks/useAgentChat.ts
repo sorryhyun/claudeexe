@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getAgentService } from "../services/agentService";
 import { detectEmotion } from "../services/emotionMapper";
 import { sessionStorage } from "../services/sessionStorage";
@@ -10,6 +11,7 @@ import type {
   Emotion,
   AgentQuestionEvent,
   AttachedImage,
+  ExitPlanModeEvent,
 } from "../services/agentTypes";
 
 const MAX_MESSAGES = 100;
@@ -20,6 +22,7 @@ interface UseAgentChatOptions {
 }
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
+  const { t } = useTranslation();
   const { onEmotionChange, sessionId: viewSessionId } = options;
 
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
@@ -31,6 +34,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [error, setError] = useState<Error | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<AgentQuestionEvent | null>(null);
+  const [pendingPlanModeExit, setPendingPlanModeExit] = useState<ExitPlanModeEvent | null>(null);
 
   const agentService = useRef(getAgentService());
   const streamingMessageId = useRef<string | null>(null);
@@ -55,6 +59,19 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       // Show curious expression when asking a question
       onEmotionChange?.("thinking");
     });
+    return unsubscribe;
+  }, [onEmotionChange]);
+
+  // Register ExitPlanMode callback - show approval modal
+  useEffect(() => {
+    const unsubscribe = agentService.current.onExitPlanMode(
+      (event: ExitPlanModeEvent) => {
+        console.log("[useAgentChat] ExitPlanMode event received:", event);
+        setPendingPlanModeExit(event);
+        // Show thinking expression when asking for plan approval
+        onEmotionChange?.("thinking");
+      }
+    );
     return unsubscribe;
   }, [onEmotionChange]);
 
@@ -237,7 +254,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
             toolsInUse: [],
           });
 
-          finalizeStreamingMessage(`Oops! Something went wrong: ${err.message}`);
+          finalizeStreamingMessage(`${t("chat.errorPrefix")}: ${err.message}`);
           onEmotionChange?.("sad");
           // Return to neutral after delay
           setTimeout(() => onEmotionChange?.("neutral"), 4000);
@@ -302,6 +319,42 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     onEmotionChange?.("neutral");
   }, [onEmotionChange]);
 
+  // Confirm exiting plan mode
+  const confirmPlanModeExit = useCallback(async () => {
+    if (!pendingPlanModeExit) return;
+
+    try {
+      await agentService.current.confirmPlanModeExit(
+        pendingPlanModeExit.toolUseId
+      );
+      setPendingPlanModeExit(null);
+      onEmotionChange?.("happy");
+    } catch (err) {
+      console.error("[useAgentChat] Error confirming plan mode exit:", err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+    }
+  }, [pendingPlanModeExit, onEmotionChange]);
+
+  // Deny exiting plan mode (keep in plan mode)
+  const denyPlanModeExit = useCallback(
+    async (reason?: string) => {
+      if (!pendingPlanModeExit) return;
+
+      try {
+        await agentService.current.denyPlanModeExit(
+          pendingPlanModeExit.toolUseId,
+          reason || "User requested to stay in plan mode"
+        );
+        setPendingPlanModeExit(null);
+        onEmotionChange?.("neutral");
+      } catch (err) {
+        console.error("[useAgentChat] Error denying plan mode exit:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
+    },
+    [pendingPlanModeExit, onEmotionChange]
+  );
+
   return {
     messages,
     streamingState,
@@ -314,6 +367,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     pendingQuestion,
     answerQuestion,
     cancelQuestion,
+    pendingPlanModeExit,
+    confirmPlanModeExit,
+    denyPlanModeExit,
   };
 }
 

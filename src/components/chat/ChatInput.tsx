@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { commands } from "../../bindings";
 
 const MAX_IMAGES = 5;
@@ -15,6 +16,7 @@ interface ChatInputProps {
 }
 
 function ChatInput({ onSend, disabled, onAnalyzeScreen }: ChatInputProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
@@ -117,13 +119,13 @@ function ChatInput({ onSend, disabled, onAnalyzeScreen }: ChatInputProps) {
               type="button"
               className="attached-image-btn"
               onClick={() => handleImageClick(img)}
-              title="Click to view"
+              title={t("chatInput.clickToView")}
             >
               [img{index + 1}]
               <span
                 className="attached-image-remove"
                 onClick={(e) => handleRemoveImage(img.id, e)}
-                title="Remove"
+                title={t("chatInput.remove")}
               >
                 ×
               </span>
@@ -137,14 +139,14 @@ function ChatInput({ onSend, disabled, onAnalyzeScreen }: ChatInputProps) {
             type="button"
             className="chat-plus-btn"
             onClick={() => setShowPlusMenu(!showPlusMenu)}
-            title="More actions"
+            title={t("chatInput.moreActions")}
           >
             +
           </button>
           {showPlusMenu && (
             <div className="chat-plus-menu">
               <button type="button" onClick={handleAnalyzeScreen}>
-                Analyze screen
+                {t("chatInput.analyzeScreen")}
               </button>
             </div>
           )}
@@ -157,7 +159,7 @@ function ChatInput({ onSend, disabled, onAnalyzeScreen }: ChatInputProps) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder={attachedImages.length > 0 ? "Add a message..." : "Say something..."}
+          placeholder={attachedImages.length > 0 ? t("chatInput.placeholderWithImages") : t("chatInput.placeholder")}
           disabled={disabled}
         />
         <button

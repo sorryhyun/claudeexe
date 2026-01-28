@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useTranslation } from "react-i18next";
 import {
   loadSettings,
   saveSettings,
@@ -7,12 +8,14 @@ import {
   type Settings,
   type BackendMode,
 } from "../../services/settingsStorage";
+import { changeLanguage } from "../../i18n";
 import { commands } from "../../bindings";
 import { useModalWindow } from "../../hooks/useModalWindow";
 import { Modal } from "../modals/Modal";
 import "../../styles/settings.css";
 
 function SettingsWindow() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null);
   const [codexAvailable, setCodexAvailable] = useState<boolean | null>(null);
@@ -54,6 +57,7 @@ function SettingsWindow() {
     const newSettings = { ...settings, language };
     setSettings(newSettings);
     saveSettings(newSettings);
+    changeLanguage(language); // Update i18n
   };
 
   const handleBackendChange = async (mode: BackendMode) => {
@@ -72,19 +76,19 @@ function SettingsWindow() {
 
   return (
     <Modal
-      title="Settings"
+      title={t("settings.title")}
       onClose={handleClose}
       className="settings-window"
       onMouseDown={handleDragStart}
       footer={
         <span className="settings-hint">
-          Preferences for Supiki responses
+          {t("settings.hint")}
         </span>
       }
     >
       <div className="settings-body">
         <div className="settings-section">
-          <label className="settings-label">AI Backend</label>
+          <label className="settings-label">{t("settings.aiBackend")}</label>
           <div className="settings-backend-list">
             <button
               className={`settings-backend-item ${
@@ -100,7 +104,7 @@ function SettingsWindow() {
                 </span>
               )}
               {claudeAvailable === false && (
-                <span className="backend-unavailable">(not installed)</span>
+                <span className="backend-unavailable">{t("settings.notInstalled")}</span>
               )}
             </button>
             <button
@@ -117,14 +121,14 @@ function SettingsWindow() {
                 </span>
               )}
               {codexAvailable === false && (
-                <span className="backend-unavailable">(not installed)</span>
+                <span className="backend-unavailable">{t("settings.notInstalled")}</span>
               )}
             </button>
           </div>
         </div>
 
         <div className="settings-section">
-          <label className="settings-label">Language</label>
+          <label className="settings-label">{t("settings.language")}</label>
           <div className="settings-language-list">
             {SUPPORTED_LANGUAGES.map((lang) => (
               <button

@@ -23,10 +23,11 @@ use tauri::{
 
 use commands::{
     answer_agent_question, check_claude_cli, check_codex_cli, clear_agent_session,
-    clear_claude_session_cmd, clear_codex_session_cmd, get_actual_cwd, get_backend_mode,
-    get_codex_session_id, get_recent_cwds, get_session_id, get_sidecar_cwd, is_dev_mode,
-    is_supiki_mode, open_image_in_viewer, pick_folder, quit_app, send_agent_message,
-    set_backend_mode, set_sidecar_cwd, stop_sidecar,
+    clear_claude_session_cmd, clear_codex_session_cmd, confirm_plan_mode_exit,
+    deny_plan_mode_exit, get_actual_cwd, get_backend_mode, get_codex_session_id,
+    get_recent_cwds, get_session_id, get_sidecar_cwd, is_dev_mode, is_supiki_mode,
+    open_image_in_viewer, pick_folder, quit_app, send_agent_message, set_backend_mode,
+    set_sidecar_cwd, stop_sidecar,
 };
 use state::{DEV_MODE, SUPIKI_MODE, SIDECAR_CWD, RECENT_CWDS, load_cwd_from_disk, load_recent_cwds_from_disk};
 
@@ -42,6 +43,8 @@ pub fn create_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         is_dev_mode,
         is_supiki_mode,
         answer_agent_question,
+        confirm_plan_mode_exit,
+        deny_plan_mode_exit,
         open_image_in_viewer,
         set_sidecar_cwd,
         get_sidecar_cwd,
